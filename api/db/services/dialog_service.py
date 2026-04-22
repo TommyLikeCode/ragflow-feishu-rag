@@ -373,10 +373,56 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
     knowledges = []
 
-    if attachments is not None and "knowledge" in param_keys:
+    retrieval_enabled = attachments is not None and ("knowledge" in param_keys or (not param_keys and bool(dialog.kb_ids)))
+    logging.info(
+        "[dialog/async_chat] retrieval-gate dialog_id=%s attachments_is_none=%s param_keys=%s kb_ids=%s enabled=%s",
+        dialog.id,
+        attachments is None,
+        param_keys,
+        dialog.kb_ids,
+        retrieval_enabled,
+    )
+
+    if retrieval_enabled:
         logging.debug("Proceeding with retrieval")
         tenant_ids = list(set([kb.tenant_id for kb in kbs]))
         knowledges = []
+
+        def _model_meta(mdl):
+            if mdl is None:
+                return {"model": "", "provider": ""}
+            return {
+                "model": getattr(mdl, "model_name", "") or getattr(mdl, "model", "") or getattr(mdl, "llm_name", ""),
+                "provider": getattr(mdl, "provider", "") or getattr(mdl, "model_provider", "") or getattr(mdl, "llm_factory", ""),
+            }
+
+        query_text = " ".join(questions)
+        logging.info(
+            "[dialog/async_chat] retrieval-input dialog_id=%s question_repr=%r question_len=%s tenant_ids=%s kb_ids=%s top_n=%s top_k=%s similarity_threshold=%s vector_similarity_weight=%s",
+            dialog.id,
+            query_text,
+            len(query_text),
+            tenant_ids,
+            dialog.kb_ids,
+            dialog.top_n,
+            dialog.top_k,
+            dialog.similarity_threshold,
+            dialog.vector_similarity_weight,
+        )
+        embd_meta = _model_meta(embd_mdl)
+        chat_meta = _model_meta(chat_mdl)
+        logging.info(
+            "[dialog/async_chat] model-summary dialog_id=%s embd_none=%s rerank_none=%s chat_none=%s embd_model=%s embd_provider=%s chat_model=%s chat_provider=%s",
+            dialog.id,
+            embd_mdl is None,
+            rerank_mdl is None,
+            chat_mdl is None,
+            embd_meta["model"],
+            embd_meta["provider"],
+            chat_meta["model"],
+            chat_meta["provider"],
+        )
+
         if prompt_config.get("reasoning", False) or kwargs.get("reasoning"):
             reasoner = DeepResearcher(
                 chat_mdl,
@@ -415,7 +461,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
         else:
             if embd_mdl:
                 kbinfos = await retriever.retrieval(
-                    " ".join(questions),
+                    query_text,
                     embd_mdl,
                     tenant_ids,
                     dialog.kb_ids,
@@ -427,29 +473,58 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                     top=dialog.top_k,
                     aggs=True,
                     rerank_mdl=rerank_mdl,
-                    rank_feature=label_question(" ".join(questions), kbs),
+                    rank_feature=label_question(query_text, kbs),
                 )
                 if prompt_config.get("toc_enhance"):
-                    cks = await retriever.retrieval_by_toc(" ".join(questions), kbinfos["chunks"], tenant_ids, chat_mdl, dialog.top_n)
+                    cks = await retriever.retrieval_by_toc(query_text, kbinfos["chunks"], tenant_ids, chat_mdl, dialog.top_n)
                     if cks:
                         kbinfos["chunks"] = cks
                 kbinfos["chunks"] = retriever.retrieval_by_children(kbinfos["chunks"], tenant_ids)
             if prompt_config.get("tavily_api_key"):
                 tav = Tavily(prompt_config["tavily_api_key"])
-                tav_res = tav.retrieve_chunks(" ".join(questions))
+                tav_res = tav.retrieve_chunks(query_text)
                 kbinfos["chunks"].extend(tav_res["chunks"])
                 kbinfos["doc_aggs"].extend(tav_res["doc_aggs"])
             if prompt_config.get("use_kg"):
-                ck = await settings.kg_retriever.retrieval(" ".join(questions), tenant_ids, dialog.kb_ids, embd_mdl,
+                ck = await settings.kg_retriever.retrieval(query_text, tenant_ids, dialog.kb_ids, embd_mdl,
                                                        LLMBundle(dialog.tenant_id, LLMType.CHAT))
                 if ck["content_with_weight"]:
                     kbinfos["chunks"].insert(0, ck)
 
     knowledges = kb_prompt(kbinfos, max_tokens)
+    retrieval_chunk_count = len(kbinfos.get("chunks", []) or [])
+    retrieval_doc_aggs_count = len(kbinfos.get("doc_aggs", []) or [])
+    retrieval_total = kbinfos.get("total", 0)
+    top_chunk_preview = ""
+    if retrieval_chunk_count > 0:
+        top_chunk_preview = " ".join(str(kbinfos["chunks"][0].get("content_with_weight", "")).split())[:120]
+    logging.info(
+        "[dialog/async_chat] retrieval-summary dialog_id=%s kb_ids=%s total=%s chunks=%s doc_aggs=%s top_chunk_preview=%s",
+        dialog.id,
+        dialog.kb_ids,
+        retrieval_total,
+        retrieval_chunk_count,
+        retrieval_doc_aggs_count,
+        top_chunk_preview,
+    )
+    logging.info(
+        "[dialog/async_chat] kb_prompt-summary dialog_id=%s knowledges_len=%s first_knowledge_preview=%s",
+        dialog.id,
+        len(knowledges),
+        (" ".join(str(knowledges[0]).split())[:120] if knowledges else ""),
+    )
     logging.debug("{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
 
     retrieval_ts = timer()
     if not knowledges and prompt_config.get("empty_response"):
+        logging.info(
+            "[dialog/async_chat] empty_response-triggered dialog_id=%s knowledges_empty=%s empty_response_configured=%s retrieval_chunks=%s retrieval_doc_aggs=%s",
+            dialog.id,
+            True,
+            bool(prompt_config.get("empty_response")),
+            retrieval_chunk_count,
+            retrieval_doc_aggs_count,
+        )
         empty_res = prompt_config["empty_response"]
         yield {"answer": empty_res, "reference": kbinfos, "prompt": "\n\n### Query:\n%s" % " ".join(questions),
                "audio_binary": tts(tts_mdl, empty_res), "final": True}

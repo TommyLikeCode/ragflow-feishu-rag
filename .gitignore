@@ -211,3 +211,15 @@ backup
 # Added by cargo
 
 /target
+
+# local cache / artifacts
+logs/
+*.log
+uv-aarch64-unknown-linux-gnu.tar.gz
+uv-x86_64-unknown-linux-gnu.tar.gz
+
+# local env / codex
+docker/.env
+docker/.env.bak
+.codex/
+.codex
