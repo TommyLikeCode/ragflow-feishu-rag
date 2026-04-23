@@ -139,16 +139,14 @@ class FeishuWSClient:
             raise RuntimeError("`lark_oapi.ws.Client` is unavailable.")
 
         return client_cls(
-            app_id=self.config.app_id,
-            app_secret=self.config.app_secret,
-            app_token=self.config.app_token,
-            event_handler=event_handler,
-            log_level=self.config.log_level,
+            self.config.app_id,
+            self.config.app_secret,
+            event_handler=event_handler
         )
 
     def _build_event_handler(self, sdk):
         ws_module = getattr(sdk, "ws", None)
-        handler_cls = getattr(ws_module, "EventDispatcherHandler", None)
+        handler_cls = getattr(sdk, "EventDispatcherHandler", None)
         if handler_cls is None:
             # Older/newer SDKs may accept a plain callback object.
             return self._dispatch_event
