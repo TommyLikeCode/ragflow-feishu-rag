@@ -164,6 +164,28 @@ function boolTag(v) {
   return v ? tag('正常', 'ok') : tag('异常', 'err');
 }
 
+function renderSources(sources) {
+  const rows = Array.isArray(sources) ? sources : [];
+  if (!rows.length) return emptyBlock('no citation sources');
+  return `<table class="table dense">
+    <thead><tr><th>source_label</th><th>doc_name</th><th>snippet</th><th>score</th><th>kb_id</th><th>chunk_id</th></tr></thead>
+    <tbody>
+      ${rows
+        .map(
+          (s) => `<tr>
+            <td>${esc(s.source_label || '-')}</td>
+            <td>${esc(s.doc_name || '-')}</td>
+            <td>${esc(s.snippet || '-')}</td>
+            <td>${esc(s.score ?? '-')}</td>
+            <td>${esc(s.kb_id || '-')}</td>
+            <td>${esc(s.chunk_id || '-')}</td>
+          </tr>`,
+        )
+        .join('')}
+    </tbody>
+  </table>`;
+}
+
 function statusTag(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'normal' || s === 'done') return tag(s === 'done' ? '完成' : '正常', 'ok');
@@ -983,6 +1005,7 @@ async function renderSessionPage() {
                 <div><label>pipeline</label><span>${esc(d.pipeline_name || '-')}</span></div>
                 <div><label>rewrite 生效</label><span>${boolTag(Boolean(d.rewrite_applied))}</span></div>
                 <div><label>耗时(s)</label><span>${esc(d.latency_seconds || 0)}</span></div>
+                <div><label>citation_count</label><span>${esc(d.citation_count ?? 0)}</span></div>
               </div>
               <div class="sub-title">完整 answer</div>
               <pre>${esc(d.answer || '-')}</pre>
@@ -992,6 +1015,10 @@ async function renderSessionPage() {
               <div>${esc((d.retrieved_kb_ids || []).join(', ') || '-')}</div>
               <div class="sub-title">source/citation 摘要</div>
               <div>${esc((d.source_summary || []).join(', ') || '-')}</div>
+              <div class="sub-title">normalized_sources</div>
+              ${renderSources(d.normalized_sources)}
+              <div class="sub-title">formatted_answer_preview</div>
+              <pre>${esc(d.formatted_answer_preview || '-')}</pre>
             `,
           });
         } catch (e) {
@@ -1041,6 +1068,8 @@ async function renderEvalPage() {
         <article class="metric-card"><span>answer_keyword_match_rate</span><strong>${esc(summary.answer_keyword_match_rate ?? '-')}</strong></article>
         <article class="metric-card"><span>source_keyword_match_rate</span><strong>${esc(summary.source_keyword_match_rate ?? '-')}</strong></article>
         <article class="metric-card"><span>avg_latency_seconds</span><strong>${esc(summary.avg_latency_seconds ?? '-')}</strong></article>
+        <article class="metric-card"><span>avg_citation_count</span><strong>${esc(summary.avg_citation_count ?? '-')}</strong></article>
+        <article class="metric-card"><span>citation_coverage_rate</span><strong>${esc(summary.citation_coverage_rate ?? '-')}</strong></article>
       </section>
 
       <section class="panel">
@@ -1067,9 +1096,9 @@ async function renderEvalPage() {
                         <td><div class="truncate" title="${esc(r.question || '')}">${esc(truncate(r.question || '-', 60))}</div></td>
                         <td>${r.success ? tag('成功', 'ok') : tag('失败', 'err')}</td>
                         <td>${esc(r.failure_reason || '-')}</td>
-                        <td>${esc(truncate(r.answer || '-', 80))}</td>
+                        <td><div>citation_count: ${esc(r.citation_count ?? 0)}</div><div>${esc(truncate(r.answer || '-', 80))}</div><small>${esc(truncate(r.formatted_answer_preview || '-', 80))}</small></td>
                         <td>${esc(truncate(r.used_original_query || '-', 60))}</td>
-                        <td>${esc(truncate(r.used_retrieval_query || '-', 60))}</td>
+                        <td>${esc(truncate(r.used_retrieval_query || '-', 60))}<div><button data-act="eval-detail" data-case-id="${esc(r.case_id || '')}">detail</button></div></td>
                       </tr>`,
                     )
                     .join('')}
@@ -1078,6 +1107,30 @@ async function renderEvalPage() {
             : emptyBlock('暂无评测结果，请先生成 eval_*.json')
         }
       </section>`;
+
+    qsa('button[data-act="eval-detail"]').forEach((btn) => {
+      btn.onclick = () => {
+        const caseId = btn.dataset.caseId || '';
+        const row = rows.find((x) => String(x.case_id || '') === caseId) || {};
+        openDrawer({
+          title: `eval case detail · ${caseId || '-'}`,
+          contentHtml: `
+            <div class="kv-grid">
+              <div><label>case_id</label><span>${esc(row.case_id || '-')}</span></div>
+              <div><label>citation_count</label><span>${esc(row.citation_count ?? 0)}</span></div>
+              <div><label>success</label><span>${row.success ? tag('success', 'ok') : tag('failed', 'err')}</span></div>
+              <div><label>failure_reason</label><span>${esc(row.failure_reason || '-')}</span></div>
+            </div>
+            <div class="sub-title">formatted_answer_preview</div>
+            <pre>${esc(row.formatted_answer_preview || '-')}</pre>
+            <div class="sub-title">normalized_sources</div>
+            ${renderSources(row.normalized_sources)}
+            <div class="sub-title">answer</div>
+            <pre>${esc(row.answer || '-')}</pre>
+          `,
+        });
+      };
+    });
 
     if (defaultBefore) qs('#eval-before').value = defaultBefore;
     if (defaultAfter) qs('#eval-after').value = defaultAfter;

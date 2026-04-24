@@ -28,6 +28,7 @@ from api.db.services.document_service import doc_upload_and_parse
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.tenant_llm_service import TenantLLMService
 from api.db.services.user_service import TenantService
+from api.integrations.feishu_citation_formatter import SOURCE_HEADING, format_answer_with_citations
 from api.integrations.feishu_kb_acl import evaluate_kb_acl_for_user
 from api.integrations.feishu_query_runner import ask_feishu_kb_question
 from api.integrations.feishu_metrics import get_feishu_health_snapshot, get_feishu_metrics_snapshot
@@ -463,6 +464,17 @@ def _resolve_feishu_session(dialog_id, feishu_user_id):
 
 
 def _format_feishu_reply(answer_text, references):
+    formatted = format_answer_with_citations(answer_text or "", references if references is not None else [])
+    reply_text = formatted.get("formatted_text", answer_text or "")
+    display_answer = reply_text.split("\n\n本回答基于以下资料生成：", 1)[0]
+    display_answer = reply_text.split(f"\n\n{SOURCE_HEADING}", 1)[0]
+    return {
+        "answer": display_answer,
+        "references": references,
+        "reply_text": reply_text,
+        "normalized_sources": formatted.get("normalized_sources", []),
+    }
+
     answer_text = answer_text or ""
     references = references if isinstance(references, list) else []
 
@@ -650,6 +662,7 @@ async def _debug_acl(dialog_id, feishu_user_id):
         "department_id": report.get("department_id", ""),
         "original_kb_ids": report.get("original_kb_ids", []),
         "filtered_kb_ids": report.get("filtered_kb_ids", []),
+        "denied_kb_ids": report.get("denied_kb_ids", []),
         "per_kb_decisions": report.get("per_kb_decisions", []),
     }, "", 0
 

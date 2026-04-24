@@ -15,6 +15,7 @@ from api.db.services.document_service import DocumentService
 from api.db.services.file_service import FileService
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.user_service import TenantService
+from api.integrations.feishu_citation_formatter import format_answer_with_citations, normalize_references
 from api.integrations.feishu_kb_acl import get_acl_config, normalize_kb_policy, remove_kb_policy, upsert_kb_policy
 from api.integrations.feishu_metrics import get_feishu_health_snapshot, get_feishu_metrics_snapshot
 from api.utils.api_utils import get_data_error_result, get_json_result, get_request_json, server_error_response
@@ -101,7 +102,10 @@ def _all_kb_snapshots() -> list[dict[str, Any]]:
         )
         chunk_count = sum(_safe_int(d.get("chunk_num")) for d in docs)
 
-        policy = normalize_kb_policy(policies.get(kb.id) if isinstance(policies.get(kb.id), dict) else {})
+        has_policy = isinstance(policies.get(kb.id), dict)
+        policy = normalize_kb_policy(policies.get(kb.id) if has_policy else {})
+        if not has_policy:
+            policy["scope"] = "no_policy"
         scope = policy.get("scope", "public")
         owner_user_id = policy.get("owner_user_id", "")
         department_id = policy.get("department_id", "")
@@ -307,6 +311,8 @@ def _build_session_records(limit: int = 200) -> list[dict[str, Any]]:
                 answer = content
 
         references = row.get("reference") if isinstance(row.get("reference"), list) else []
+        normalized_sources = normalize_references({"answer": answer, "reference": references})
+        formatted = format_answer_with_citations(answer, references)
         hit_kbs = _extract_hit_kbs_from_reference(references)
         success = bool(answer.strip()) and "no relevant content" not in answer.lower()
         failure_reason = "" if success else (row.get("errors") or "empty_answer")
@@ -328,6 +334,9 @@ def _build_session_records(limit: int = 200) -> list[dict[str, Any]]:
                 "latency_seconds": round(_safe_float(row.get("duration", 0)), 4),
                 "answer_summary": (answer[:160] + "...") if len(answer) > 160 else answer,
                 "answer": answer,
+                "citation_count": len(normalized_sources),
+                "normalized_sources": normalized_sources,
+                "formatted_answer_preview": str(formatted.get("formatted_text", answer))[:500],
                 "context_seed_question": "",
                 "retrieved_kb_ids": hit_kbs,
                 "rewrite_applied": False,
@@ -363,6 +372,9 @@ def _build_session_records(limit: int = 200) -> list[dict[str, Any]]:
                     "latency_seconds": round(_safe_float(it.get("latency_seconds", 0)), 4),
                     "answer_summary": (answer[:160] + "...") if len(answer) > 160 else answer,
                     "answer": answer,
+                    "citation_count": _safe_int(it.get("citation_count", 0)),
+                    "normalized_sources": it.get("normalized_sources") if isinstance(it.get("normalized_sources"), list) else [],
+                    "formatted_answer_preview": it.get("formatted_answer_preview") or "",
                     "context_seed_question": it.get("context_seed_question") or "",
                     "retrieved_kb_ids": it.get("retrieved_kb_ids") if isinstance(it.get("retrieved_kb_ids"), list) else [],
                     "rewrite_applied": bool((it.get("used_retrieval_query") or "") != (it.get("used_original_query") or "")),
@@ -526,9 +538,11 @@ async def admin_kb_detail(kb_id: str):
         chunk_count = sum(_safe_int(d.get("chunk_num")) for d in docs)
 
         acl_cfg = get_acl_config()
-        policy = normalize_kb_policy(
-            acl_cfg.get("kb_policies", {}).get(kb.id, {}) if isinstance(acl_cfg.get("kb_policies"), dict) else {}
-        )
+        policies = acl_cfg.get("kb_policies") if isinstance(acl_cfg.get("kb_policies"), dict) else {}
+        has_policy = isinstance(policies.get(kb.id), dict)
+        policy = normalize_kb_policy(policies.get(kb.id) if has_policy else {})
+        if not has_policy:
+            policy["scope"] = "no_policy"
 
         return get_json_result(
             data={
@@ -854,6 +868,8 @@ def _eval_summary(payload: dict[str, Any]) -> dict[str, Any]:
         "answer_keyword_match_rate": _safe_float(payload.get("answer_keyword_match_rate", 0)),
         "source_keyword_match_rate": _safe_float(payload.get("source_keyword_match_rate", 0)),
         "avg_latency_seconds": _safe_float(payload.get("avg_latency_seconds", 0)),
+        "avg_citation_count": _safe_float(payload.get("avg_citation_count", 0)),
+        "citation_coverage_rate": _safe_float(payload.get("citation_coverage_rate", 0)),
         "failure_reason_counts": payload.get("failure_reason_counts") if isinstance(payload.get("failure_reason_counts"), dict) else {},
     }
 

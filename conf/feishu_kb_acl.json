@@ -8,11 +8,14 @@
   "kb_policies": {
     "public-kb-id": {
       "scope": "public",
+      "owner_user_id": "",
+      "department_id": "",
       "allowed_user_ids": [],
       "denied_user_ids": []
     },
     "department-kb-id": {
       "scope": "department",
+      "owner_user_id": "",
       "department_id": "dept_demo",
       "allowed_user_ids": [],
       "denied_user_ids": []
@@ -20,6 +23,7 @@
     "personal-kb-id": {
       "scope": "personal",
       "owner_user_id": "u_demo",
+      "department_id": "",
       "allowed_user_ids": [],
       "denied_user_ids": []
     },

@@ -17,6 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from api.apps import app
 from api.db.services.dialog_service import DialogService
+from api.integrations.feishu_citation_formatter import format_answer_with_citations
 from api.integrations.feishu_query_runner import ask_feishu_kb_question
 
 
@@ -125,6 +126,8 @@ async def _run_eval(dialog_id: str, eval_cases: list[dict[str, Any]]) -> dict[st
     hit_count = 0
     answer_keyword_match_count = 0
     source_keyword_match_count = 0
+    citation_case_count = 0
+    total_citation_count = 0
     failure_reason_counts: dict[str, int] = {}
     pipeline_name = "feishu_iframe_completion"
 
@@ -165,6 +168,12 @@ async def _run_eval(dialog_id: str, eval_cases: list[dict[str, Any]]) -> dict[st
         total_latency += latency_seconds
 
         source_text = _collect_source_text(references)
+        formatted = format_answer_with_citations(answer, ask_result.get("reference", {}) if isinstance(ask_result, dict) else {})
+        normalized_sources = formatted.get("normalized_sources", []) if isinstance(formatted, dict) else []
+        citation_count = len(normalized_sources)
+        total_citation_count += citation_count
+        if citation_count > 0:
+            citation_case_count += 1
         matched_answer_keywords = _match_keywords(answer, expected_answer_keywords)
         matched_source_keywords = _match_keywords(source_text, expected_source_keywords)
         retrieved_kb_ids = _collect_retrieved_kb_ids(references)
@@ -214,6 +223,9 @@ async def _run_eval(dialog_id: str, eval_cases: list[dict[str, Any]]) -> dict[st
                 "matched_source_keywords": matched_source_keywords,
                 "expected_kb_ids": expected_kb_ids,
                 "retrieved_kb_ids": retrieved_kb_ids,
+                "citation_count": citation_count,
+                "normalized_sources": normalized_sources,
+                "formatted_answer_preview": str(formatted.get("formatted_text", answer))[:500] if isinstance(formatted, dict) else answer[:500],
                 "success": success,
                 "failure_reason": failure_reason,
             }
@@ -224,6 +236,8 @@ async def _run_eval(dialog_id: str, eval_cases: list[dict[str, Any]]) -> dict[st
     answer_keyword_match_rate = (answer_keyword_match_count / total_cases) if total_cases else 0.0
     source_keyword_match_rate = (source_keyword_match_count / total_cases) if total_cases else 0.0
     avg_latency_seconds = (total_latency / total_cases) if total_cases else 0.0
+    avg_citation_count = (total_citation_count / total_cases) if total_cases else 0.0
+    citation_coverage_rate = (citation_case_count / total_cases) if total_cases else 0.0
 
     return {
         "dialog_id": dialog_id,
@@ -236,6 +250,8 @@ async def _run_eval(dialog_id: str, eval_cases: list[dict[str, Any]]) -> dict[st
         "source_keyword_match_count": source_keyword_match_count,
         "source_keyword_match_rate": round(source_keyword_match_rate, 4),
         "avg_latency_seconds": round(avg_latency_seconds, 4),
+        "avg_citation_count": round(avg_citation_count, 4),
+        "citation_coverage_rate": round(citation_coverage_rate, 4),
         "failure_reason_counts": failure_reason_counts,
         "per_case_results": per_case_results,
     }

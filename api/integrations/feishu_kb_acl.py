@@ -160,7 +160,13 @@ def evaluate_kb_acl_for_user(feishu_user_id: str, kb_ids: list[str]) -> dict[str
     for kb_id in original_kb_ids:
         policy = _policy_or_none(policies, kb_id)
         if policy is None:
-            policy = normalize_kb_policy({"scope": "public"})
+            policy = {
+                "scope": "no_policy",
+                "owner_user_id": "",
+                "department_id": "",
+                "allowed_user_ids": [],
+                "denied_user_ids": [],
+            }
             allow = False
             reason = "no_policy"
             matched_rule = "no_policy"
