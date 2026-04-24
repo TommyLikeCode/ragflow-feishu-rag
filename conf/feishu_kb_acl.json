@@ -1,0 +1,39 @@
+{
+  "external_user_map": {
+    "ou_test_citation": "u_demo"
+  },
+  "internal_user_department_map": {
+    "u_demo": "dept_demo"
+  },
+  "kb_policies": {
+    "public-kb-id": {
+      "scope": "public",
+      "allowed_user_ids": [],
+      "denied_user_ids": []
+    },
+    "department-kb-id": {
+      "scope": "department",
+      "department_id": "dept_demo",
+      "allowed_user_ids": [],
+      "denied_user_ids": []
+    },
+    "personal-kb-id": {
+      "scope": "personal",
+      "owner_user_id": "u_demo",
+      "allowed_user_ids": [],
+      "denied_user_ids": []
+    },
+    "21ae44fa3d7f11f197284708341e8ef1": {
+      "scope": "public",
+      "owner_user_id": "",
+      "department_id": "",
+      "allowed_user_ids": [
+        "u_demo",
+        "u_acl_extra"
+      ],
+      "denied_user_ids": [
+        "u_acl_blocked"
+      ]
+    }
+  }
+}

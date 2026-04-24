@@ -17,8 +17,11 @@ async def main() -> None:
     logger = logging.getLogger("feishu_ws_sidecar")
     try:
         from api.apps import app
+        from api.integrations.feishu_message_handler import handle_feishu_message
+        from api.integrations.feishu_metrics import reset_feishu_metrics
         from api.integrations.feishu_ws_bridge import FeishuWSBridge
         from api.integrations.feishu_ws_client import build_client_from_env
+        from api.integrations.feishu_task_queue import start_feishu_worker
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Failed to import Feishu WS sidecar dependencies. "
@@ -26,12 +29,14 @@ async def main() -> None:
         ) from exc
 
     async with app.app_context():
+        reset_feishu_metrics()
         client = await build_client_from_env(logger=logger)
         bridge = FeishuWSBridge(
             client=client,
             default_dialog_id=os.environ.get("FEISHU_DEFAULT_DIALOG_ID", "").strip(),
             logger=logger,
         )
+        start_feishu_worker(lambda ctx: handle_feishu_message(ctx, bridge, logger), logger=logger)
         client.register_message_handler(bridge.handle_event)
         logger.info("Feishu WS sidecar initialized")
         await client.start()

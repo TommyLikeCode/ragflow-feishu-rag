@@ -1,0 +1,102 @@
+[
+  {
+    "case_id": "case_1",
+    "question": "RAGFlow 是一个基于什么的 RAG 引擎？",
+    "expected_answer_keywords": ["深度文档理解", "RAG 引擎"],
+    "expected_source_keywords": ["RAGFlow", "深度文档理解"]
+  },
+  {
+    "case_id": "case_2",
+    "question": "请简要说明 RAGFlow 的定位。",
+    "expected_answer_keywords": ["RAGFlow", "引擎"],
+    "expected_source_keywords": ["RAGFlow"]
+  },
+  {
+    "case_id": "case_3",
+    "question": "Feishu Debug Dialog 绑定了什么？",
+    "expected_answer_keywords": ["知识库"],
+    "expected_source_keywords": ["Feishu Debug Dialog", "知识库"]
+  },
+  {
+    "case_id": "case_4",
+    "question": "这个知识库是否与飞书调试相关？",
+    "expected_answer_keywords": ["飞书"],
+    "expected_source_keywords": ["Feishu"]
+  },
+  {
+    "case_id": "case_5",
+    "question": "请给出一句基于知识库的总结。",
+    "expected_answer_keywords": ["RAGFlow"],
+    "expected_source_keywords": ["RAGFlow"]
+  },
+  {
+    "case_id": "case_6",
+    "question": "是什么引擎？",
+    "expected_answer_keywords": ["RAGFlow", "RAG 引擎"],
+    "expected_source_keywords": ["RAGFlow"],
+    "context_seed_question": "RAGFlow 是一个基于什么的 RAG 引擎？"
+  },
+  {
+    "case_id": "case_7",
+    "question": "基于什么？",
+    "expected_answer_keywords": ["深度文档理解"],
+    "expected_source_keywords": ["深度文档理解"],
+    "context_seed_question": "RAGFlow 是一个基于什么的 RAG 引擎？"
+  },
+  {
+    "case_id": "case_8",
+    "question": "这个是做啥的？",
+    "expected_answer_keywords": ["RAGFlow", "RAG"],
+    "expected_source_keywords": ["RAGFlow"],
+    "context_seed_question": "RAGFlow 是一个基于什么的 RAG 引擎？"
+  },
+  {
+    "case_id": "case_9",
+    "question": "那个对话绑定了啥？",
+    "expected_answer_keywords": ["Feishu Debug Dialog", "知识库"],
+    "expected_source_keywords": ["Feishu Debug Dialog", "知识库"],
+    "context_seed_question": "Feishu Debug Dialog 绑定了什么？"
+  },
+  {
+    "case_id": "case_10",
+    "question": "上面说的那个系统，定位一句话。",
+    "expected_answer_keywords": ["RAGFlow", "引擎"],
+    "expected_source_keywords": ["RAGFlow"],
+    "context_seed_question": "RAGFlow 是一个基于什么的 RAG 引擎？"
+  },
+  {
+    "case_id": "case_11",
+    "question": "你好，麻烦问下它是基于什么的？",
+    "expected_answer_keywords": ["深度文档理解"],
+    "expected_source_keywords": ["深度文档理解"],
+    "context_seed_question": "RAGFlow 是一个基于什么的 RAG 引擎？"
+  },
+  {
+    "case_id": "case_12",
+    "question": "嗨，这个知识库和飞书调试有关系吗？",
+    "expected_answer_keywords": ["飞书"],
+    "expected_source_keywords": ["Feishu"],
+    "context_seed_question": "Feishu Debug Dialog 绑定了什么？"
+  },
+  {
+    "case_id": "case_13",
+    "question": "然后呢？它的核心是什么？",
+    "expected_answer_keywords": ["RAGFlow", "深度文档理解"],
+    "expected_source_keywords": ["RAGFlow", "深度文档理解"],
+    "context_seed_question": "RAGFlow 是一个基于什么的 RAG 引擎？"
+  },
+  {
+    "case_id": "case_14",
+    "question": "再说一下这个 Dialog 绑定信息。",
+    "expected_answer_keywords": ["Feishu Debug Dialog", "知识库"],
+    "expected_source_keywords": ["Feishu Debug Dialog", "知识库"],
+    "context_seed_question": "Feishu Debug Dialog 绑定了什么？"
+  },
+  {
+    "case_id": "case_15",
+    "question": "请问，上面那个引擎一句话介绍。",
+    "expected_answer_keywords": ["RAGFlow", "RAG 引擎"],
+    "expected_source_keywords": ["RAGFlow"],
+    "context_seed_question": "RAGFlow 是一个基于什么的 RAG 引擎？"
+  }
+]

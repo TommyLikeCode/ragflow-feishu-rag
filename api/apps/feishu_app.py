@@ -17,15 +17,20 @@
 import os
 import logging
 import json
+import re
+
+from quart import request
 
 from api.apps import app
 from api.db.services.api_service import API4ConversationService
-from api.db.services.conversation_service import async_iframe_completion
 from api.db.services.dialog_service import DialogService, async_chat
 from api.db.services.document_service import doc_upload_and_parse
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.tenant_llm_service import TenantLLMService
 from api.db.services.user_service import TenantService
+from api.integrations.feishu_kb_acl import evaluate_kb_acl_for_user
+from api.integrations.feishu_query_runner import ask_feishu_kb_question
+from api.integrations.feishu_metrics import get_feishu_health_snapshot, get_feishu_metrics_snapshot
 from api.utils.api_utils import (
     get_data_error_result,
     get_json_result,
@@ -460,27 +465,85 @@ def _resolve_feishu_session(dialog_id, feishu_user_id):
 def _format_feishu_reply(answer_text, references):
     answer_text = answer_text or ""
     references = references if isinstance(references, list) else []
-    if not references:
-        return {
-            "answer": answer_text,
-            "references": references,
-            "reply_text": answer_text,
-        }
 
-    lines = ["参考资料："]
-    for i, ref in enumerate(references[:3], start=1):
+    def _normalize_snippet(value, max_chars=100):
+        if value is None:
+            return ""
+        text = str(value).replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not text:
+            return ""
+
+        first_line = ""
+        for line in text.split("\n"):
+            line = line.strip()
+            if line:
+                first_line = line
+                break
+        text = first_line or text
+
+        sentence_end = re.search(r"[。！？.!?]", text)
+        if sentence_end:
+            text = text[: sentence_end.end()]
+        else:
+            mixed_boundary = re.search(r"(?<=[\u4e00-\u9fff0-9a-z])([A-Z][A-Za-z0-9_\-]{2,})", text)
+            if mixed_boundary:
+                text = text[: mixed_boundary.start(1)].rstrip()
+
+        text = re.sub(r"\s+", " ", text).strip()
+        if len(text) > max_chars:
+            text = text[:max_chars].rstrip() + "..."
+        elif text and not re.search(r"[。！？.!?]$", text):
+            text = text + "..."
+        return text
+
+    citation_pattern = re.compile(r"\[ID:(\d+)\]")
+    cited_indexes = []
+    for match in citation_pattern.finditer(answer_text):
+        idx = int(match.group(1))
+        if idx not in cited_indexes:
+            cited_indexes.append(idx)
+
+    if cited_indexes:
+        answer_text = citation_pattern.sub(lambda m: f"[来源{int(m.group(1)) + 1}]", answer_text)
+
+    normalized_refs = []
+    for i, ref in enumerate(references):
         if not isinstance(ref, dict):
             continue
-        doc_name = ref.get("document_name") or ref.get("doc_name") or ref.get("name") or "未知文档"
-        content = ref.get("content") or ref.get("snippet") or ref.get("text") or ""
-        content = " ".join(str(content).split())[:80]
-        if content:
-            lines.append(f"{i}. {doc_name}: {content}")
-        else:
-            lines.append(f"{i}. {doc_name}")
+        doc_name = (
+            ref.get("document_name")
+            or ref.get("doc_name")
+            or ref.get("name")
+            or ref.get("docnm_kwd")
+            or f"来源片段 {i + 1}"
+        )
+        snippet = _normalize_snippet(
+            ref.get("content") or ref.get("snippet") or ref.get("text") or ref.get("content_with_weight") or ""
+        )
+        normalized_refs.append({"doc_name": doc_name, "snippet": snippet})
+
+    source_lines = []
+    if cited_indexes:
+        for idx in cited_indexes[:3]:
+            if 0 <= idx < len(normalized_refs):
+                source_lines.append((idx, normalized_refs[idx]))
+            else:
+                source_lines.append((idx, {"doc_name": f"来源片段 {idx + 1}", "snippet": ""}))
+    else:
+        for idx, item in enumerate(normalized_refs[:3]):
+            source_lines.append((idx, item))
+
+    lines = []
+    if source_lines:
+        lines.append("本回答基于以下资料生成：")
+        for i, (_, item) in enumerate(source_lines, start=1):
+            if item["snippet"]:
+                lines.append(f"{i}. {item['doc_name']}：{item['snippet']}")
+            else:
+                lines.append(f"{i}. {item['doc_name']}")
 
     reply_text = answer_text
-    if len(lines) > 1:
+    if lines:
         reply_text = f"{answer_text}\n\n" + "\n".join(lines)
 
     return {
@@ -553,37 +616,57 @@ def _extract_iframe_data(chunk):
     return data if isinstance(data, dict) else None
 
 
-async def _bootstrap_feishu_session(dialog_id, feishu_user_id):
-    async for chunk in async_iframe_completion(
-        dialog_id,
-        "",
-        session_id=None,
-        stream=False,
-        user_id=feishu_user_id,
-    ):
-        data = _extract_iframe_data(chunk)
-        if data and data.get("session_id"):
-            return data.get("session_id")
-    return ""
-
-
 async def _ask_feishu_with_session(dialog_id, feishu_user_id, session_id, question):
-    async for chunk in async_iframe_completion(
-        dialog_id,
-        question,
+    return await ask_feishu_kb_question(
+        dialog_id=dialog_id,
+        feishu_user_id=feishu_user_id,
+        question=question,
         session_id=session_id,
-        stream=False,
-        user_id=feishu_user_id,
-    ):
-        data = _extract_iframe_data(chunk)
-        if data:
-            return data
-    return {}
+        apply_acl=True,
+        apply_rewrite=True,
+    )
+
+
+async def _debug_acl(dialog_id, feishu_user_id):
+    exists, dialog = DialogService.get_by_id(dialog_id)
+    if not exists:
+        return None, f"Dialog not found: {dialog_id}", 404
+
+    report = evaluate_kb_acl_for_user(feishu_user_id, list(dialog.kb_ids or []))
+    logging.info(
+        "[feishu/debug-acl] dialog_id=%s feishu_user_id=%s internal_user_id=%s department_id=%s original_kb_ids=%s filtered_kb_ids=%s",
+        dialog_id,
+        report.get("feishu_user_id", ""),
+        report.get("internal_user_id", ""),
+        report.get("department_id", ""),
+        report.get("original_kb_ids", []),
+        report.get("filtered_kb_ids", []),
+    )
+
+    return {
+        "dialog_id": dialog_id,
+        "external_user": report.get("feishu_user_id", ""),
+        "internal_user": report.get("internal_user_id", ""),
+        "department_id": report.get("department_id", ""),
+        "original_kb_ids": report.get("original_kb_ids", []),
+        "filtered_kb_ids": report.get("filtered_kb_ids", []),
+        "per_kb_decisions": report.get("per_kb_decisions", []),
+    }, "", 0
 
 
 @manager.route("/ping", methods=["GET"])  # noqa: F821
 async def ping():
     return get_json_result(data={"ok": True, "message": "feishu app alive"})
+
+
+@manager.route("/metrics", methods=["GET"])  # noqa: F821
+async def metrics():
+    return get_json_result(data=get_feishu_metrics_snapshot())
+
+
+@manager.route("/health", methods=["GET"])  # noqa: F821
+async def health():
+    return get_json_result(data=get_feishu_health_snapshot())
 
 
 @manager.route("/chat", methods=["POST"])  # noqa: F821
@@ -871,6 +954,31 @@ async def list_dialogs_local():
         return get_json_result(data=data)
     except Exception as e:
         return server_error_response(e)
+
+
+@manager.route("/debug_acl", methods=["GET"])  # noqa: F821
+async def debug_acl():
+    try:
+        dialog_id = (request.args.get("dialog_id") or "").strip()
+        open_id = (request.args.get("open_id") or "").strip()
+        user_id = (request.args.get("user_id") or "").strip()
+        feishu_user_id = open_id or user_id
+
+        if not dialog_id:
+            return get_data_error_result(message="`dialog_id` is required")
+        if not feishu_user_id:
+            return get_data_error_result(message="`open_id` or `user_id` is required")
+
+        data, err, code = await _debug_acl(dialog_id, feishu_user_id)
+        if err:
+            return get_json_result(code=code, message=err, data=None)
+        return get_json_result(data=data)
+    except Exception as e:
+        return server_error_response(e)
+
+
+app.add_url_rule("/api/v1/feishu/debug_acl", view_func=debug_acl, methods=["GET"])
+app.add_url_rule("/v1/feishu/debug_acl", view_func=debug_acl, methods=["GET"])
 
 
 def _is_usable_llm_id(tenant_id, llm_id):
@@ -1185,6 +1293,8 @@ async def bootstrap_llm():
 
 # compatibility alias
 app.add_url_rule("/api/v1/feishu/dialogs", view_func=list_dialogs_local, methods=["GET"])
+app.add_url_rule("/api/v1/feishu/metrics", view_func=metrics, methods=["GET"])
+app.add_url_rule("/api/v1/feishu/health", view_func=health, methods=["GET"])
 app.add_url_rule("/api/v1/feishu/bootstrap-dialog", view_func=bootstrap_dialog, methods=["POST"])
 app.add_url_rule("/api/v1/feishu/bootstrap-llm", view_func=bootstrap_llm, methods=["POST"])
 app.add_url_rule("/v1/feishu/bootstrap-llm", view_func=bootstrap_llm, methods=["POST"])

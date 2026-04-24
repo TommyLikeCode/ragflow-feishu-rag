@@ -314,6 +314,8 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
 
     retriever = settings.retriever
     questions = [m["content"] for m in messages if m["role"] == "user"][-3:]
+    retrieval_query_override = kwargs.get("retrieval_query", "")
+    retrieval_query_override = retrieval_query_override.strip() if isinstance(retrieval_query_override, str) else ""
     attachments = kwargs["doc_ids"].split(",") if "doc_ids" in kwargs else []
     attachments_= ""
     if "doc_ids" in messages[-1]:
@@ -326,8 +328,9 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     logging.debug(f"field_map retrieved: {field_map}")
     # try to use sql if field mapping is good to go
     if field_map:
-        logging.debug("Use SQL to retrieval:{}".format(questions[-1]))
-        ans = await use_sql(questions[-1], field_map, dialog.tenant_id, chat_mdl, prompt_config.get("quote", True), dialog.kb_ids)
+        sql_question = retrieval_query_override or questions[-1]
+        logging.debug("Use SQL to retrieval:{}".format(sql_question))
+        ans = await use_sql(sql_question, field_map, dialog.tenant_id, chat_mdl, prompt_config.get("quote", True), dialog.kb_ids)
         # For aggregate queries (COUNT, SUM, etc.), chunks may be empty but answer is still valid
         if ans and (ans.get("reference", {}).get("chunks") or ans.get("answer")):
             yield ans
@@ -396,12 +399,13 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
                 "provider": getattr(mdl, "provider", "") or getattr(mdl, "model_provider", "") or getattr(mdl, "llm_factory", ""),
             }
 
-        query_text = " ".join(questions)
+        query_text = retrieval_query_override or " ".join(questions)
         logging.info(
-            "[dialog/async_chat] retrieval-input dialog_id=%s question_repr=%r question_len=%s tenant_ids=%s kb_ids=%s top_n=%s top_k=%s similarity_threshold=%s vector_similarity_weight=%s",
+            "[dialog/async_chat] retrieval-input dialog_id=%s question_repr=%r question_len=%s has_rewrite_override=%s tenant_ids=%s kb_ids=%s top_n=%s top_k=%s similarity_threshold=%s vector_similarity_weight=%s",
             dialog.id,
             query_text,
             len(query_text),
+            bool(retrieval_query_override),
             tenant_ids,
             dialog.kb_ids,
             dialog.top_n,

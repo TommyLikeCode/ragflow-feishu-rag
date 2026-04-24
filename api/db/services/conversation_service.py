@@ -198,6 +198,9 @@ async def async_completion(tenant_id, chat_id, question, name="New session", ses
 async def async_iframe_completion(dialog_id, question, session_id=None, stream=True, **kwargs):
     e, dia = DialogService.get_by_id(dialog_id)
     assert e, "Dialog not found"
+    kb_ids_override = kwargs.get("kb_ids_override")
+    if isinstance(kb_ids_override, list):
+        dia.kb_ids = [kb_id for kb_id in kb_ids_override if isinstance(kb_id, str) and kb_id]
     if not session_id:
         session_id = get_uuid()
         conv = {

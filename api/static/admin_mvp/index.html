@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAGFlow Admin MVP</title>
+    <link rel="stylesheet" href="/admin/assets/styles.css?v=stage2" />
+  </head>
+  <body>
+    <div id="global-error" class="hidden"></div>
+    <div id="toast-wrap"></div>
+    <div id="modal-host"></div>
+    <div id="drawer-host"></div>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1>Copilot Admin</h1>
+        <button class="menu-item active" data-page="dashboard">Dashboard</button>
+        <button class="menu-item" data-page="kbs">知识库管理</button>
+        <button class="menu-item" data-page="docs">文档管理</button>
+        <button class="menu-item" data-page="acl">ACL 调试</button>
+        <button class="menu-item" data-page="sessions">问答记录</button>
+        <button class="menu-item" data-page="evals">评测结果</button>
+      </aside>
+      <main class="content">
+        <section id="page-dashboard" class="page"></section>
+        <section id="page-kbs" class="page hidden"></section>
+        <section id="page-docs" class="page hidden"></section>
+        <section id="page-acl" class="page hidden"></section>
+        <section id="page-sessions" class="page hidden"></section>
+        <section id="page-evals" class="page hidden"></section>
+      </main>
+    </div>
+    <script src="/admin/assets/app.js?v=stage2"></script>
+  </body>
+</html>
