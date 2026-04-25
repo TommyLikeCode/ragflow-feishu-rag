@@ -26,6 +26,47 @@ def _clean_text(value: Any, max_len: int | None = None) -> str:
     return text
 
 
+def _repair_sentence_boundaries(text: str) -> str:
+    if not text:
+        return ""
+    text = re.sub(r"\s*[\r\n]+\s*", "；", text)
+    text = re.sub(r"(?<=[\u4e00-\u9fff])(?=Feishu\s+Debug\s+Dialog\b)", "；", text)
+    text = re.sub(r"(?<=[\u4e00-\u9fff])(?=RAGFlow\b)", "；", text)
+    text = re.sub(r"(?<=[a-z])(?=[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)", "；", text)
+    text = re.sub(r"[;；]\s*[;；]+", "；", text)
+    return _clean_text(text)
+
+
+def _split_sentences(text: str) -> list[str]:
+    repaired = _repair_sentence_boundaries(text)
+    if not repaired:
+        return []
+    parts = re.split(r"(?<=[。！？!?\.])\s+|[;；]\s*", repaired)
+    return [p.strip(" 。！？!?.;；") for p in parts if p.strip(" 。！？!?.;；")]
+
+
+def _choose_relevant_snippet(snippet: str, answer: str, max_snippet_len: int) -> str:
+    repaired = _repair_sentence_boundaries(snippet)
+    answer_text = _clean_text(answer).lower()
+    sentences = _split_sentences(repaired)
+
+    priorities: list[str] = []
+    if "ragflow" in answer_text:
+        priorities.append("ragflow")
+    if "feishu debug dialog" in answer_text:
+        priorities.append("feishu debug dialog")
+
+    for token in priorities:
+        for sentence in sentences:
+            if token in sentence.lower():
+                return _clean_text(sentence, max_snippet_len)
+
+    if len(sentences) > 1:
+        joined = "；".join(sentences)
+        return _clean_text(joined, max_snippet_len)
+    return _clean_text(repaired, max_snippet_len)
+
+
 def _to_float(value: Any) -> float | None:
     try:
         if value is None or value == "":
@@ -57,7 +98,7 @@ def _doc_name_of(ref: dict[str, Any], doc_names: dict[str, str]) -> str:
     return _clean_text(raw) or UNKNOWN_DOC
 
 
-def _snippet_of(ref: dict[str, Any], max_snippet_len: int) -> str:
+def _snippet_of(ref: dict[str, Any], max_snippet_len: int, answer: str = "") -> str:
     raw = (
         ref.get("content")
         or ref.get("snippet")
@@ -67,7 +108,7 @@ def _snippet_of(ref: dict[str, Any], max_snippet_len: int) -> str:
         or ref.get("summary")
         or ""
     )
-    snippet = _clean_text(raw, max_snippet_len)
+    snippet = _choose_relevant_snippet(str(raw), answer, max_snippet_len)
     return snippet or EMPTY_SNIPPET
 
 
@@ -154,7 +195,7 @@ def normalize_references(answer_or_response: Any, max_snippet_len: int = 100) ->
                 "source_indexes": [idx],
                 "source_label": "",
                 "doc_name": _doc_name_of(ref, doc_names),
-                "snippet": _snippet_of(ref, max_snippet_len),
+                "snippet": _snippet_of(ref, max_snippet_len, answer),
                 "score": score,
                 "chunk_id": _chunk_id_of(ref),
                 "kb_id": _kb_id_of(ref),
