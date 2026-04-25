@@ -628,12 +628,13 @@ def _extract_iframe_data(chunk):
     return data if isinstance(data, dict) else None
 
 
-async def _ask_feishu_with_session(dialog_id, feishu_user_id, session_id, question):
+async def _ask_feishu_with_session(dialog_id, feishu_user_id, session_id, question, selection_key=""):
     return await ask_feishu_kb_question(
         dialog_id=dialog_id,
         feishu_user_id=feishu_user_id,
         question=question,
         session_id=session_id,
+        selection_key=selection_key,
         apply_acl=True,
         apply_rewrite=True,
     )

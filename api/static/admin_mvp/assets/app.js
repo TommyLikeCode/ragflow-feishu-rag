@@ -4,6 +4,7 @@ const state = {
   kbs: [],
   docs: [],
   sessions: [],
+  kbSelections: [],
   evalFiles: [],
   latestEval: null,
   currentPage: 'dashboard',
@@ -277,6 +278,7 @@ function setupMenu() {
       if (page === 'kbs') await renderKbPage();
       if (page === 'docs') await renderDocPage();
       if (page === 'acl') await renderAclPage();
+      if (page === 'kb-route') await renderKbRoutePage();
       if (page === 'sessions') await renderSessionPage();
       if (page === 'evals') await renderEvalPage();
     });
@@ -937,6 +939,72 @@ async function renderAclPage() {
       qs('#acl-result').innerHTML = emptyBlock('ACL 查询失败: ' + e.message);
     }
   };
+}
+
+async function renderKbRoutePage() {
+  const box = qs('#page-kb-route');
+  box.innerHTML = `
+    <section class="page-head">
+      <h2>知识库路由</h2>
+      <p>查看飞书用户当前选择的知识库范围，并支持清除会话级路由。</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <h3>Selection 状态</h3>
+        <button class="primary" id="kb-route-refresh">刷新</button>
+      </div>
+      <div id="kb-route-table-wrap">${loadingBlock('正在加载知识库路由...')}</div>
+    </section>`;
+
+  async function refresh() {
+    const data = await api('/api/admin/kb-selections');
+    const rows = data.items || [];
+    state.kbSelections = rows;
+    qs('#kb-route-table-wrap').innerHTML = rows.length
+      ? `<table class="table">
+          <thead><tr><th>selection_key</th><th>selected_kb_names</th><th>selected_kb_ids</th><th>updated_at</th><th>操作</th></tr></thead>
+          <tbody>
+            ${rows
+              .map(
+                (r) => `<tr>
+                  <td><code>${esc(r.selection_key || '-')}</code></td>
+                  <td>${esc((r.selected_kb_names || []).join(', ') || '-')}</td>
+                  <td>${esc((r.selected_kb_ids || []).join(', ') || '-')}</td>
+                  <td>${esc(r.updated_at || '-')}</td>
+                  <td><button class="danger" data-act="clear-selection" data-key="${esc(r.selection_key || '')}">清除</button></td>
+                </tr>`,
+              )
+              .join('')}
+          </tbody>
+        </table>`
+      : emptyBlock('暂无知识库路由记录');
+
+    qsa('#kb-route-table-wrap button[data-act="clear-selection"]').forEach((btn) => {
+      btn.onclick = async () => {
+        const key = btn.dataset.key || '';
+        if (!key) return;
+        openConfirm({
+          title: '清除知识库路由',
+          text: `确认清除 ${key} 的知识库选择？`,
+          confirmText: '清除',
+          onConfirm: async (close) => {
+            await api('/api/admin/kb-selections?key=' + encodeURIComponent(key), { method: 'DELETE' });
+            close();
+            showToast('知识库路由已清除', 'success');
+            await refresh();
+          },
+        });
+      };
+    });
+  }
+
+  qs('#kb-route-refresh').onclick = refresh;
+
+  try {
+    await refresh();
+  } catch (e) {
+    qs('#kb-route-table-wrap').innerHTML = emptyBlock('知识库路由加载失败: ' + e.message);
+  }
 }
 
 async function renderSessionPage() {

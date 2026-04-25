@@ -17,6 +17,7 @@ from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.user_service import TenantService
 from api.integrations.feishu_citation_formatter import format_answer_with_citations, normalize_references
 from api.integrations.feishu_kb_acl import get_acl_config, normalize_kb_policy, remove_kb_policy, upsert_kb_policy
+from api.integrations.feishu_kb_selection import clear_selection, list_selections
 from api.integrations.feishu_metrics import get_feishu_health_snapshot, get_feishu_metrics_snapshot
 from api.utils.api_utils import get_data_error_result, get_json_result, get_request_json, server_error_response
 from common.constants import StatusEnum, TaskStatus
@@ -870,6 +871,25 @@ async def admin_sessions():
         return server_error_response(e)
 
 
+async def admin_kb_selections():
+    try:
+        rows = list_selections()
+        return get_json_result(data={"total": len(rows), "items": rows})
+    except Exception as e:
+        return server_error_response(e)
+
+
+async def admin_kb_selection_delete():
+    try:
+        key = (request.args.get("key") or "").strip()
+        if not key:
+            return get_data_error_result(message="`key` is required")
+        deleted = clear_selection(key)
+        return get_json_result(data={"selection_key": key, "deleted": deleted})
+    except Exception as e:
+        return server_error_response(e)
+
+
 async def admin_session_detail(session_id: str):
     try:
         rows = _build_session_records(limit=500)
@@ -1084,6 +1104,8 @@ app.add_url_rule("/api/admin/dashboard", view_func=admin_dashboard, methods=["GE
 app.add_url_rule("/api/admin/defaults", view_func=admin_defaults, methods=["GET"])
 app.add_url_rule("/api/admin/sessions", view_func=admin_sessions, methods=["GET"])
 app.add_url_rule("/api/admin/sessions/<path:session_id>", view_func=admin_session_detail, methods=["GET"])
+app.add_url_rule("/api/admin/kb-selections", view_func=admin_kb_selections, methods=["GET"])
+app.add_url_rule("/api/admin/kb-selections", view_func=admin_kb_selection_delete, methods=["DELETE"])
 app.add_url_rule("/api/admin/evals", view_func=admin_evals, methods=["GET"])
 app.add_url_rule("/api/admin/evals/latest", view_func=admin_evals_latest, methods=["GET"])
 app.add_url_rule("/api/admin/evals/compare", view_func=admin_evals_compare, methods=["GET"])

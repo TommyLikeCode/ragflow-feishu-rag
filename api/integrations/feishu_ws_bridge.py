@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from api.integrations.feishu_message_context import FeishuMessageContext
 from api.integrations.feishu_metrics import record_ws_received
+from api.integrations.feishu_kb_selection import build_selection_key
 from api.integrations.feishu_task_queue import enqueue_feishu_message
 
 
@@ -113,10 +114,11 @@ class FeishuWSBridge:
         open_id: str,
         session_id: str,
         question: str,
+        selection_key: str = "",
     ) -> dict[str, Any]:
         helpers = self._helpers(optional=True)
         if hasattr(helpers, "_ask_feishu_with_session"):
-            return await helpers._ask_feishu_with_session(dialog_id, open_id, session_id, question)
+            return await helpers._ask_feishu_with_session(dialog_id, open_id, session_id, question, selection_key=selection_key)
 
         from api.db.services.conversation_service import async_iframe_completion
 
@@ -165,7 +167,8 @@ class FeishuWSBridge:
         else:
             force_new_session = False
         session_id = await self.resolve_or_create_session(dialog_id, open_id, force_new_session)
-        answer_data = await self.ask_ragflow(dialog_id, open_id, session_id, question)
+        selection_key = build_selection_key(parsed.get("raw_event") or parsed)
+        answer_data = await self.ask_ragflow(dialog_id, open_id, session_id, question, selection_key=selection_key)
         answer_text = answer_data.get("answer", "") if isinstance(answer_data, dict) else ""
         references = self.extract_references(answer_data if isinstance(answer_data, dict) else {})
         reply_text = self.format_reply(answer_text, references)
@@ -181,6 +184,7 @@ class FeishuWSBridge:
             "dialog_id": dialog_id,
             "session_id": session_id,
             "open_id": open_id,
+            "selection_key": selection_key,
             "reply_text": reply_text,
             "send_result": send_result,
         }
