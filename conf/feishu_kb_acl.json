@@ -27,17 +27,12 @@
       "allowed_user_ids": [],
       "denied_user_ids": []
     },
-    "21ae44fa3d7f11f197284708341e8ef1": {
+    "3086d3263d7e11f197284708341e8ef1": {
       "scope": "public",
       "owner_user_id": "",
       "department_id": "",
-      "allowed_user_ids": [
-        "u_demo",
-        "u_acl_extra"
-      ],
-      "denied_user_ids": [
-        "u_acl_blocked"
-      ]
+      "allowed_user_ids": [],
+      "denied_user_ids": []
     }
   }
 }

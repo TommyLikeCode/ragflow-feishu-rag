@@ -18,6 +18,7 @@ def _clean_text(value: Any, max_len: int | None = None) -> str:
         return ""
     text = html.unescape(str(value))
     text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"^[;；]+\s*", "", text)
     text = text.replace("\r", " ").replace("\n", " ").replace("\t", " ")
     text = re.sub(r"\s+", " ", text).strip()
     text = re.sub(r"([。！？!?])\1+", r"\1", text)
@@ -214,7 +215,8 @@ def normalize_references(answer_or_response: Any, max_snippet_len: int = 100) ->
     deduped: list[dict[str, Any]] = []
     seen: dict[str, dict[str, Any]] = {}
     for item in candidates:
-        key = item["_doc_key"] or item["doc_name"]
+        snippet_key = _clean_text(item.get("snippet", "")).lower()
+        key = snippet_key if snippet_key and snippet_key != EMPTY_SNIPPET.lower() else (item["_doc_key"] or item["doc_name"])
         if key in seen:
             seen[key]["source_indexes"].append(item["source_index"])
             if seen[key]["snippet"] == EMPTY_SNIPPET and item["snippet"] != EMPTY_SNIPPET:

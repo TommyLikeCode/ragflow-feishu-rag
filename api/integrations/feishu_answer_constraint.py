@@ -7,7 +7,9 @@ from typing import Any
 def _normalize(text: Any) -> str:
     if text is None:
         return ""
-    return " ".join(str(text).replace("\r", " ").replace("\n", " ").split()).strip()
+    cleaned = str(text).replace("\r", " ").replace("\n", " ")
+    cleaned = re.sub(r"^[;；]+\s*", "", cleaned)
+    return " ".join(cleaned.split()).strip()
 
 
 def _get_top_chunk_text(reference: Any) -> str:
@@ -27,6 +29,58 @@ def _get_top_chunk_text(reference: Any) -> str:
         or ""
     )
     return _normalize(text)
+
+
+def _is_generic_fallback(answer: str) -> bool:
+    normalized = _normalize(answer).lower()
+    if not normalized:
+        return True
+    return any(
+        token in normalized
+        for token in [
+            "sorry! no relevant content was found in the knowledge base!",
+            "no relevant content was found",
+            "当前知识库未检索到相关内容",
+            "no relevant content",
+        ]
+    )
+
+
+def _sentences(text: str) -> list[str]:
+    cleaned = _normalize(text)
+    if not cleaned:
+        return []
+    parts = re.split(r"(?<=[。！？!?；;])\s*", cleaned)
+    return [p.strip(" 。！？!?；;") for p in parts if p.strip(" 。！？!?；;")]
+
+
+def _extract_support_sentence(question: str, chunk_text: str) -> str:
+    if not chunk_text:
+        return ""
+
+    sentences = _sentences(chunk_text)
+    if not sentences:
+        return ""
+
+    question_text = _normalize(question).lower()
+    support_keywords = ["支持哪些", "支持什么", "入口", "渠道", "平台", "方式"]
+    if any(keyword in question_text for keyword in support_keywords):
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            if "支持" in sentence and any(keyword in sentence for keyword in ["入口", "渠道", "平台", "飞书", "discord", "telegram", "whatsapp"]):
+                return sentence
+
+    for sentence in sentences:
+        if "支持" in sentence:
+            return sentence
+    return sentences[0]
+
+
+def _fact_sentence(question: str, chunk_text: str) -> str:
+    support_sentence = _extract_support_sentence(question, chunk_text)
+    if support_sentence:
+        return support_sentence
+    return _normalize(chunk_text)
 
 
 def _extract_ragflow_sentence(chunk_text: str) -> str:
@@ -83,6 +137,8 @@ def apply_answer_constraint(question: str, answer: str, reference: Any) -> dict[
     chunk_text = _get_top_chunk_text(reference)
     ragflow_sentence = _extract_ragflow_sentence(chunk_text)
     binding_sentence = _extract_binding_sentence(chunk_text)
+    fallback_has_reference = _is_generic_fallback(original) and bool(chunk_text)
+    fact_sentence = _fact_sentence(question, chunk_text)
 
     constrained = original
     rule = "none"
@@ -108,23 +164,39 @@ def apply_answer_constraint(question: str, answer: str, reference: Any) -> dict[
             rule = "relation_template"
 
     # If model returns generic fallback while we do have chunk evidence, force concise fact sentence.
-    generic = any(
+    generic = _is_generic_fallback(original) or any(
         token in original.lower()
         for token in [
             "<context>",
-            "no relevant content",
             "无法回答",
             "请提供",
             "未提供具体",
         ]
     )
-    if generic and ragflow_sentence and intent in {"definition", "attribute", "core", "other"}:
+    if (generic or fallback_has_reference) and fact_sentence and intent in {"definition", "attribute", "core", "other"}:
         if intent == "core":
             constrained = _with_citation("RAGFlow 的核心是深度文档理解")
             rule = "generic_fallback_core"
         else:
-            constrained = _with_citation(ragflow_sentence)
-            rule = "generic_fallback_definition"
+            if re.search(r"支持哪些入口|支持什么入口|入口|渠道", _normalize(question)):
+                concise = _normalize(re.sub(r"^.*?支持", "支持", fact_sentence))
+                if concise and "支持" in concise:
+                    prefix = _normalize(re.sub(r"支持.*$", "", _normalize(question)))
+                    if prefix:
+                        concise = f"{prefix} {concise}".strip()
+                    constrained = _with_citation(concise)
+                    rule = "generic_fallback_support"
+                else:
+                    constrained = _with_citation(f"根据已检索到的资料，{fact_sentence}")
+                    rule = "generic_fallback_fact"
+            else:
+                constrained = _with_citation(fact_sentence)
+                rule = "generic_fallback_definition"
+
+    if (generic or fallback_has_reference) and not constrained:
+        constrained = _with_citation(f"根据已检索到的资料，{fact_sentence}") if fact_sentence else original
+        if constrained != original:
+            rule = "generic_fallback_default"
 
     applied = constrained != original and bool(constrained)
     return {

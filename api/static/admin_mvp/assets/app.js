@@ -121,10 +121,17 @@ function openModal({ title, contentHtml, onConfirm, confirmText = '保存', widt
   qs('#modal-close').onclick = close;
   qs('#modal-cancel').onclick = close;
   qs('#modal-ok').onclick = async () => {
+    const okBtn = qs('#modal-ok');
+    const prev = okBtn.textContent;
+    okBtn.disabled = true;
+    okBtn.textContent = '处理中...';
     try {
       await onConfirm(close);
     } catch (e) {
       showToast(e.message || '操作失败', 'error');
+    } finally {
+      okBtn.disabled = false;
+      okBtn.textContent = prev;
     }
   };
 }
@@ -655,7 +662,7 @@ async function showDocDetail(docId) {
         chunks.length
           ? `<div class="chunk-list">${chunks
               .map(
-                (c, i) => `<article><h4>#${i + 1} ${esc(c.doc_name || c.doc_id || '-')}</h4><p>${esc(c.content || '-')}</p></article>`,
+                (c, i) => `<article><h4>#${i + 1} ${esc(c.chunk_id || '-')} · ${esc(c.doc_name || c.doc_id || '-')}</h4><p>${esc(c.snippet || c.content || '-')}</p></article>`,
               )
               .join('')}</div>`
           : emptyBlock('暂无 chunk 预览')
@@ -679,7 +686,7 @@ async function openUploadModal(refresh) {
     contentHtml: `
       <form id="doc-upload-form" class="form-grid">
         <div class="field col-2"><label>目标知识库</label><select name="kb_id">${kbOpts}</select></div>
-        <div class="field col-2"><label>文件</label><input name="file" type="file" multiple /></div>
+        <div class="field col-2"><label>文件</label><input name="file" type="file" /></div>
         <p class="small">上传后将触发解析任务并自动刷新列表</p>
       </form>`,
     onConfirm: async (close) => {
@@ -689,17 +696,17 @@ async function openUploadModal(refresh) {
       const files = fileInput.files;
 
       if (!kbId) throw new Error('请选择知识库');
-      if (!files || files.length === 0) throw new Error('请选择至少一个文件');
+      if (!files || files.length === 0) throw new Error('请选择文件');
 
       const fd = new FormData();
       fd.append('kb_id', kbId);
-      Array.from(files).forEach((f) => fd.append('file', f));
+      fd.append('file', files[0]);
 
       const data = await apiForm('/api/admin/documents/upload', fd);
       close();
-      showToast(`上传完成，已排队 ${data.queued_count || 0} 个文档`, 'success');
+      showToast(data.message || `上传完成，已排队 ${data.queued_count || 0} 个文档`, 'success');
       if (Array.isArray(data.errors) && data.errors.length) {
-        showToast('部分文件处理异常，请查看错误详情', 'error');
+        showToast(data.errors.join(' | '), 'error');
       }
       await refresh();
     },
@@ -759,11 +766,11 @@ async function renderDocPage() {
                 (d) => `<tr>
                 <td>${esc(d.name || '-')}</td>
                 <td><div>${esc(d.kb_name || '-')}</div><code>${esc(d.kb_id || '-')}</code></td>
-                <td>${esc(d.suffix || d.file_type || '-')}</td>
-                <td>${statusTag(d.status)}</td>
+                <td>${esc(d.type || d.suffix || d.file_type || '-')}</td>
+                <td>${statusTag(d.status)}<div class="small">run=${esc(d.run)}</div><div class="small">progress=${esc(d.progress)}</div></td>
                 <td>${esc(d.chunk_num)}</td>
-                <td>${esc(d.create_date || '-')}</td>
-                <td>${esc(d.update_date || '-')}</td>
+                <td>${esc(d.create_time || d.create_date || '-')}</td>
+                <td>${esc(d.update_time || d.update_date || '-')}</td>
                 <td class="actions">
                   <button data-act="detail" data-id="${esc(d.id)}">详情</button>
                   <button data-act="reparse" data-id="${esc(d.id)}">重解析</button>

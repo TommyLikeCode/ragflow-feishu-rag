@@ -44,16 +44,17 @@ def _safe_float(value: Any) -> float:
 
 
 def _task_status_name(run: Any) -> str:
+    code_str = str(run)
     code = _safe_int(run)
-    if code == TaskStatus.RUNNING.value:
+    if code_str == str(TaskStatus.RUNNING.value) or code == _safe_int(TaskStatus.RUNNING.value):
         return "running"
-    if code == TaskStatus.CANCEL.value:
+    if code_str == str(TaskStatus.CANCEL.value) or code == _safe_int(TaskStatus.CANCEL.value):
         return "cancelled"
-    if code == TaskStatus.FAIL.value:
+    if code_str == str(TaskStatus.FAIL.value) or code == _safe_int(TaskStatus.FAIL.value):
         return "failed"
-    if code == TaskStatus.DONE.value:
+    if code_str == str(TaskStatus.DONE.value) or code == _safe_int(TaskStatus.DONE.value):
         return "done"
-    if code == TaskStatus.UNSTART.value:
+    if code_str == str(TaskStatus.UNSTART.value) or code == _safe_int(TaskStatus.UNSTART.value):
         return "unstarted"
     return f"unknown({code})"
 
@@ -180,25 +181,37 @@ def _all_docs() -> list[dict[str, Any]]:
             suffix=[],
         )
         for row in rows:
-            docs.append(
-                {
-                    "id": row.get("id", ""),
-                    "kb_id": kb.id,
-                    "kb_name": kb.name,
-                    "name": row.get("name", ""),
-                    "file_type": row.get("type", ""),
-                    "suffix": row.get("suffix", ""),
-                    "run": row.get("run", 0),
-                    "status": _task_status_name(row.get("run")),
-                    "chunk_num": _safe_int(row.get("chunk_num")),
-                    "progress": _safe_float(row.get("progress")),
-                    "progress_msg": row.get("progress_msg", "") or "",
-                    "create_date": row.get("create_date", ""),
-                    "update_date": row.get("update_date", ""),
-                }
-            )
+            docs.append(_normalize_doc_row(row, kb.id, kb.name))
     docs.sort(key=lambda x: str(x.get("update_date", "")), reverse=True)
     return docs
+
+
+def _normalize_doc_row(row: dict[str, Any], kb_id: str, kb_name: str) -> dict[str, Any]:
+    doc_id = row.get("id", "")
+    run = _safe_int(row.get("run", 0))
+    create_time = row.get("create_date", "") or row.get("create_time", "")
+    update_time = row.get("update_date", "") or row.get("update_time", "")
+    doc_type = row.get("type", "")
+    return {
+        "id": doc_id,
+        "doc_id": doc_id,
+        "name": row.get("name", ""),
+        "document_name": row.get("name", ""),
+        "kb_id": kb_id,
+        "kb_name": kb_name,
+        "type": doc_type,
+        "file_type": doc_type,
+        "suffix": row.get("suffix", ""),
+        "run": run,
+        "status": _task_status_name(run),
+        "progress": _safe_float(row.get("progress", 0)),
+        "progress_msg": row.get("progress_msg", "") or "",
+        "chunk_num": _safe_int(row.get("chunk_num", 0)),
+        "create_time": create_time,
+        "update_time": update_time,
+        "create_date": create_time,
+        "update_date": update_time,
+    }
 
 
 def _latest_eval_summary() -> dict[str, Any]:
@@ -682,7 +695,7 @@ async def admin_kb_delete(kb_id: str):
 
 async def admin_documents():
     try:
-        q = (request.args.get("q") or "").strip().lower()
+        q = (request.args.get("q") or request.args.get("keyword") or "").strip().lower()
         kb_id_filter = (request.args.get("kb_id") or "").strip()
         kb_name_filter = (request.args.get("kb_name") or "").strip().lower()
         status_filter = (request.args.get("status") or "").strip().lower()
@@ -730,12 +743,16 @@ async def admin_document_detail(doc_id: str):
                     [doc.kb_id],
                 )
                 fields = settings.docStoreConn.get_fields(result, ["content_with_weight", "docnm_kwd", "doc_id"])
-                for _, v in fields.items():
+                for chunk_id, v in fields.items():
+                    snippet = str(v.get("content_with_weight", ""))[:300]
                     chunk_preview.append(
                         {
+                            "chunk_id": chunk_id,
                             "doc_id": v.get("doc_id", ""),
                             "doc_name": v.get("docnm_kwd", ""),
-                            "content": str(v.get("content_with_weight", ""))[:300],
+                            "content": snippet,
+                            "snippet": snippet,
+                            "score": v.get("score"),
                         }
                     )
             except Exception:
@@ -744,8 +761,11 @@ async def admin_document_detail(doc_id: str):
         return get_json_result(
             data={
                 "id": doc.id,
+                "doc_id": doc.id,
                 "name": doc.name,
+                "document_name": doc.name,
                 "kb_id": doc.kb_id,
+                "kb_name": kb.name if kb_ok and kb else "",
                 "status": _task_status_name(doc.run),
                 "run": doc.run,
                 "chunk_num": _safe_int(doc.chunk_num),
@@ -754,6 +774,8 @@ async def admin_document_detail(doc_id: str):
                 "last_error": doc.progress_msg or "",
                 "type": doc.type,
                 "suffix": doc.suffix,
+                "create_time": doc.create_date,
+                "update_time": doc.update_date,
                 "create_date": doc.create_date,
                 "update_date": doc.update_date,
                 "chunk_preview": chunk_preview,
@@ -973,29 +995,66 @@ async def admin_document_upload():
         if not e or not kb:
             return get_json_result(code=404, message=f"KB not found: {kb_id}", data=None)
 
-        file_objs = files.getlist("file")
+        file_objs = [f for f in files.getlist("file") if f]
         if not file_objs:
             return get_data_error_result(message="No file selected")
+        for f in file_objs:
+            if not str(getattr(f, "filename", "") or "").strip():
+                return get_data_error_result(message="Empty file name is not allowed")
 
         user_id = (form.get("user_id") or "").strip() or kb.tenant_id
         err, uploaded = FileService.upload_document(kb, file_objs, user_id)
+        if not uploaded:
+            message = "\n".join(err) if err else "Upload failed: no document created"
+            return get_json_result(code=400, message=message, data={"kb_id": kb_id, "errors": err})
 
-        queued = []
+        queued: list[dict[str, str]] = []
+        items: list[dict[str, Any]] = []
         kb_table_num_map: dict[str, int] = {}
         for doc, _ in uploaded:
             try:
                 DocumentService.begin2parse(doc["id"])
                 DocumentService.run(kb.tenant_id, doc, kb_table_num_map)
                 queued.append({"id": doc.get("id", ""), "name": doc.get("name", "")})
+
+                doc_exists, latest_doc = DocumentService.get_by_id(doc.get("id", ""))
+                if doc_exists and latest_doc:
+                    items.append(
+                        _normalize_doc_row(
+                            latest_doc.to_dict(),
+                            kb.id,
+                            kb.name,
+                        )
+                    )
             except Exception as parse_err:
                 err.append(f"{doc.get('name', '')}: queue failed: {parse_err}")
 
+        if not items:
+            return get_json_result(
+                code=500,
+                message="Upload succeeded but parse queue failed",
+                data={"kb_id": kb_id, "errors": err, "queued_count": len(queued), "queued": queued},
+            )
+
+        first = items[0]
+        message = "Upload succeeded and parse queued"
+        if err:
+            message = f"Upload partially succeeded: {len(items)} succeeded, {len(err)} failed"
+
         return get_json_result(
             data={
+                "document_id": first.get("doc_id", ""),
+                "document_name": first.get("name", ""),
                 "kb_id": kb_id,
+                "status": first.get("status", ""),
+                "run": first.get("run", 0),
+                "progress": first.get("progress", 0),
+                "chunk_num": first.get("chunk_num", 0),
+                "message": message,
                 "queued_count": len(queued),
                 "queued": queued,
                 "errors": err,
+                "documents": items,
             }
         )
     except Exception as e:
