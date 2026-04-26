@@ -119,7 +119,6 @@ class FeishuWSBridge:
         helpers = self._helpers(optional=True)
         if hasattr(helpers, "_ask_feishu_with_session"):
             return await helpers._ask_feishu_with_session(dialog_id, open_id, session_id, question, selection_key=selection_key)
-
         from api.db.services.conversation_service import async_iframe_completion
 
         answer = None

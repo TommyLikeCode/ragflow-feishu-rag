@@ -1044,6 +1044,83 @@ async function renderSessionPage() {
             ${rows
               .map(
                 (r) => `<tr>
+                  <td><code>${esc(r.selection_key || '-')}</code></td>
+                  <td>${esc((r.selected_kb_names || []).join(', ') || '-')}</td>
+                  <td>${esc((r.selected_kb_ids || []).join(', ') || '-')}</td>
+                  <td>${esc(r.updated_at || '-')}</td>
+                  <td><button class="danger" data-act="clear-selection" data-key="${esc(r.selection_key || '')}">清除</button></td>
+                </tr>`,
+              )
+              .join('')}
+          </tbody>
+        </table>`
+      : emptyBlock('暂无知识库路由记录');
+
+    qsa('#kb-route-table-wrap button[data-act="clear-selection"]').forEach((btn) => {
+      btn.onclick = async () => {
+        const key = btn.dataset.key || '';
+        if (!key) return;
+        openConfirm({
+          title: '清除知识库路由',
+          text: `确认清除 ${key} 的知识库选择？`,
+          confirmText: '清除',
+          onConfirm: async (close) => {
+            await api('/api/admin/kb-selections?key=' + encodeURIComponent(key), { method: 'DELETE' });
+            close();
+            showToast('知识库路由已清除', 'success');
+            await refresh();
+          },
+        });
+      };
+    });
+  }
+
+  qs('#kb-route-refresh').onclick = refresh;
+
+  try {
+    await refresh();
+  } catch (e) {
+    qs('#kb-route-table-wrap').innerHTML = emptyBlock('知识库路由加载失败: ' + e.message);
+  }
+}
+
+async function renderSessionPage() {
+  const box = qs('#page-sessions');
+  box.innerHTML = `
+    <section class="page-head">
+      <h2>问答记录</h2>
+      <p>查看原始问题、检索问题、命中 KB、耗时与结果摘要</p>
+    </section>
+    <section class="panel">
+      <div class="filter-grid session-filter">
+        <div class="field"><label>关键词</label><input id="sess-q" placeholder="问题 / 回答 / 用户" /></div>
+        <div class="field"><label>来源</label><select id="sess-source"><option value="">全部</option><option value="conversation">conversation</option><option value="eval">eval</option></select></div>
+        <div class="field"><label>结果</label><select id="sess-success"><option value="">全部</option><option value="1">成功</option><option value="0">失败</option></select></div>
+        <div class="field actions-row"><button class="primary" id="sess-refresh">查询</button></div>
+      </div>
+      <div id="sess-table-wrap">${loadingBlock('加载问答记录中...')}</div>
+    </section>`;
+
+  async function refresh() {
+    const params = new URLSearchParams({
+      q: qs('#sess-q').value.trim(),
+      source: qs('#sess-source').value,
+      success: qs('#sess-success').value,
+      page: String(state.paging.sessions.page),
+      page_size: String(state.paging.sessions.pageSize),
+    });
+    const data = await api('/api/admin/sessions?' + params.toString());
+    const rows = data.items || [];
+    state.sessions = rows;
+
+    qs('#sess-table-wrap').innerHTML = rows.length
+      ? `${renderPagination({ key: 'sessions', page: data.page || 1, pageSize: data.page_size || state.paging.sessions.pageSize, total: data.total || 0 })}
+        <table class="table">
+          <thead><tr><th>时间</th><th>来源</th><th>用户</th><th>原始问题</th><th>检索问题</th><th>命中KB</th><th>pipeline</th><th>结果</th><th>失败原因</th><th>耗时(s)</th><th>回答摘要</th><th>操作</th></tr></thead>
+          <tbody>
+            ${rows
+              .map(
+                (r) => `<tr>
                   <td>${esc(r.time || '-')}</td>
                   <td>${statusTag(r.source)}</td>
                   <td><div>${esc(r.external_user || '-')}</div><small>${esc(r.internal_user || '')}</small></td>

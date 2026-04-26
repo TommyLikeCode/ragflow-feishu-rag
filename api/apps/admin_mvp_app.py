@@ -890,6 +890,25 @@ async def admin_kb_selection_delete():
         return server_error_response(e)
 
 
+async def admin_kb_selections():
+    try:
+        rows = list_selections()
+        return get_json_result(data={"total": len(rows), "items": rows})
+    except Exception as e:
+        return server_error_response(e)
+
+
+async def admin_kb_selection_delete():
+    try:
+        key = (request.args.get("key") or "").strip()
+        if not key:
+            return get_data_error_result(message="`key` is required")
+        deleted = clear_selection(key)
+        return get_json_result(data={"selection_key": key, "deleted": deleted})
+    except Exception as e:
+        return server_error_response(e)
+
+
 async def admin_session_detail(session_id: str):
     try:
         rows = _build_session_records(limit=500)

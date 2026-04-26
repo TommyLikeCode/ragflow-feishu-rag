@@ -83,6 +83,169 @@ def _fact_sentence(question: str, chunk_text: str) -> str:
     return _normalize(chunk_text)
 
 
+def _is_support_entry_question(question: str) -> bool:
+    q = _normalize(question)
+    if not q:
+        return False
+    return bool(re.search(r"支持.*(入口|渠道|平台|方式)|(?:入口|渠道|平台|方式).*支持|支持哪些|支持什么", q))
+
+
+def _truncate_markdown_sections(text: str) -> str:
+    if not isinstance(text, str) or not text.strip():
+        return ""
+    lines = text.splitlines()
+    kept: list[str] = []
+    for line in lines:
+        if re.match(r"^\s{0,3}#{1,6}\s+", line):
+            break
+        kept.append(line)
+    return "\n".join(kept).strip() if kept else text.strip()
+
+
+def _truncate_support_sections(text: str) -> str:
+    if not isinstance(text, str) or not text.strip():
+        return ""
+
+    normalized = re.sub(r"\s+", " ", text).strip()
+    if not normalized:
+        return ""
+
+    stop_patterns = [
+        r"##\s*核心能力",
+        r"##\s*适用场景",
+        r"##\s*测试问题建议",
+        r"#\s*核心能力",
+        r"#\s*适用场景",
+        r"核心能力",
+        r"适用场景",
+    ]
+
+    cut_index = -1
+    for pattern in stop_patterns:
+        m = re.search(pattern, normalized, flags=re.IGNORECASE)
+        if not m:
+            continue
+        idx = m.start()
+        if cut_index == -1 or idx < cut_index:
+            cut_index = idx
+
+    if cut_index > 0:
+        return normalized[:cut_index].strip()
+    return normalized
+
+
+def _split_entry_items(text: str) -> list[str]:
+    if not text:
+        return []
+
+    compact = re.sub(r"\s+", " ", text).strip()
+    compact = re.sub(r"^.*?支持(?:的)?", "", compact)
+    compact = re.sub(r"(?:入口|渠道|平台|方式)[:：]?", "", compact)
+    compact = re.sub(r"[。；;!！?？].*$", "", compact)
+    compact = compact.strip(" :：,，、")
+    if not compact:
+        return []
+
+    raw_items = re.split(r"(?:、|,|，|/|\||\s+(?:和|及|与)\s+)", compact)
+    items: list[str] = []
+    for raw in raw_items:
+        item = raw.strip()
+        item = re.sub(r"^[-*+•]\s*", "", item)
+        item = re.sub(r"^\d+[\.)、]\s*", "", item)
+        item = re.sub(r"(?:入口|渠道|平台|方式)$", "", item).strip()
+        if not item:
+            continue
+        if item in {"支持", "包括", "比如", "例如", "等"}:
+            continue
+        if item not in items:
+            items.append(item)
+    return items
+
+
+def _extract_subject_from_question(question: str) -> str:
+    q = _normalize(question)
+    if not q:
+        return ""
+    m = re.match(r"(.+?)\s*支持", q)
+    if not m:
+        return ""
+    subject = m.group(1).strip(" ，,。；;:：")
+    if not subject or len(subject) > 40:
+        return ""
+    return subject
+
+
+def _extract_entry_items_for_support(text: str) -> list[str]:
+    if not text:
+        return []
+
+    channel_specs: list[tuple[str, str]] = [
+        ("飞书", r"飞书"),
+        ("Discord", r"discord"),
+        ("Telegram", r"telegram"),
+        ("WhatsApp", r"whatsapp"),
+    ]
+
+    normalized = re.sub(r"\s+", " ", text)
+    items: list[str] = []
+    for canonical, pattern in channel_specs:
+        if re.search(pattern, normalized, flags=re.IGNORECASE) and canonical not in items:
+            items.append(canonical)
+
+    if len(items) >= 2:
+        return items
+
+    fallback = _split_entry_items(normalized)
+    cleaned: list[str] = []
+    blocked_keywords = [
+        "核心能力",
+        "适用场景",
+        "多渠道消息接入",
+        "大模型统一路由",
+        "工具调用",
+        "RAG 知识库问答",
+        "异步任务队列",
+        "企业权限隔离",
+        "企业内部知识问答",
+        "工单处理",
+        "自动化运维",
+    ]
+    for item in fallback:
+        if any(keyword in item for keyword in blocked_keywords):
+            continue
+        cleaned.append(item)
+    return cleaned
+
+
+def _compose_support_entries_answer(question: str, items: list[str]) -> str:
+    if not items:
+        return ""
+    subject = _extract_subject_from_question(question) or "该能力"
+    return f"{subject} 支持{'、'.join(items)} 等入口"
+
+
+def _extract_support_entries(question: str, answer: str, chunk_text: str) -> str:
+    if not _is_support_entry_question(question):
+        return ""
+
+    truncated_chunk = _truncate_support_sections(chunk_text)
+    truncated_answer = _truncate_support_sections(_truncate_markdown_sections(answer))
+
+    candidates = [
+        _extract_support_sentence(question, truncated_chunk),
+        truncated_answer,
+        truncated_chunk,
+    ]
+
+    for candidate in candidates:
+        items = _extract_entry_items_for_support(_normalize(candidate))
+        if len(items) >= 2:
+            return _compose_support_entries_answer(question, items)
+        if len(items) == 1 and re.search(r"[A-Za-z\u4e00-\u9fff]", items[0]):
+            return _compose_support_entries_answer(question, items)
+    return ""
+
+
 def _extract_ragflow_sentence(chunk_text: str) -> str:
     if not chunk_text:
         return ""
@@ -135,6 +298,7 @@ def apply_answer_constraint(question: str, answer: str, reference: Any) -> dict[
     intent = _intent(question)
     original = _normalize(answer)
     chunk_text = _get_top_chunk_text(reference)
+    support_entries = _extract_support_entries(question, answer if isinstance(answer, str) else str(answer or ""), chunk_text)
     ragflow_sentence = _extract_ragflow_sentence(chunk_text)
     binding_sentence = _extract_binding_sentence(chunk_text)
     fallback_has_reference = _is_generic_fallback(original) and bool(chunk_text)
@@ -143,19 +307,23 @@ def apply_answer_constraint(question: str, answer: str, reference: Any) -> dict[
     constrained = original
     rule = "none"
 
-    if intent == "binding" and binding_sentence:
+    if support_entries:
+        constrained = _with_citation(support_entries)
+        rule = "support_entries_only"
+
+    if rule == "none" and intent == "binding" and binding_sentence:
         constrained = _with_citation(binding_sentence)
         rule = "binding_template"
-    elif intent == "core" and ragflow_sentence:
+    elif rule == "none" and intent == "core" and ragflow_sentence:
         constrained = _with_citation("RAGFlow 的核心是深度文档理解")
         rule = "core_template"
-    elif intent == "attribute" and ragflow_sentence:
+    elif rule == "none" and intent == "attribute" and ragflow_sentence:
         constrained = _with_citation(ragflow_sentence)
         rule = "attribute_template"
-    elif intent == "definition" and ragflow_sentence:
+    elif rule == "none" and intent == "definition" and ragflow_sentence:
         constrained = _with_citation(ragflow_sentence)
         rule = "definition_template"
-    elif intent == "relation":
+    elif rule == "none" and intent == "relation":
         if binding_sentence:
             constrained = _with_citation("该知识库与飞书调试相关，" + binding_sentence)
             rule = "relation_binding_template"
@@ -173,7 +341,7 @@ def apply_answer_constraint(question: str, answer: str, reference: Any) -> dict[
             "未提供具体",
         ]
     )
-    if (generic or fallback_has_reference) and fact_sentence and intent in {"definition", "attribute", "core", "other"}:
+    if rule == "none" and (generic or fallback_has_reference) and fact_sentence and intent in {"definition", "attribute", "core", "other"}:
         if intent == "core":
             constrained = _with_citation("RAGFlow 的核心是深度文档理解")
             rule = "generic_fallback_core"

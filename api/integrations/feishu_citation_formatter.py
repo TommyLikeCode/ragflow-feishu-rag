@@ -31,6 +31,8 @@ def _repair_sentence_boundaries(text: str) -> str:
     if not text:
         return ""
     text = re.sub(r"\s*[\r\n]+\s*", "；", text)
+    # Break markdown headings into sentence boundaries so snippets can be extracted from inner sections.
+    text = re.sub(r"\s*#{1,6}\s*", "；", text)
     text = re.sub(r"(?<=[\u4e00-\u9fff])(?=Feishu\s+Debug\s+Dialog\b)", "；", text)
     text = re.sub(r"(?<=[\u4e00-\u9fff])(?=RAGFlow\b)", "；", text)
     text = re.sub(r"(?<=[a-z])(?=[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)", "；", text)
@@ -46,10 +48,89 @@ def _split_sentences(text: str) -> list[str]:
     return [p.strip(" 。！？!?.;；") for p in parts if p.strip(" 。！？!?.;；")]
 
 
+def _strip_markdown_heading_prefix(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = text
+    cleaned = re.sub(
+        r"^\s*#{1,6}\s*.*?(?=(?:[A-Za-z\u4e00-\u9fff][^，。；;!?！？]{0,20}(?:是|支持)))",
+        "",
+        cleaned,
+    )
+    cleaned = re.sub(r"^\s*#{1,6}\s*[^#\s]{1,20}\s*", "", cleaned)
+    cleaned = re.sub(r"^\s*[A-Za-z0-9_\-\u4e00-\u9fff]{1,20}\s*(平台简介|简介)\s*", "", cleaned)
+    cleaned = re.sub(r"\s*#{1,6}\s*(核心能力|适用场景|测试问题建议)\s*", "；", cleaned)
+    return _clean_text(cleaned)
+
+
+def _answer_priority_tokens(answer_text: str) -> list[str]:
+    tokens: list[str] = []
+    normalized = _clean_text(answer_text).lower()
+    keyword_map = [
+        ("飞书", "飞书"),
+        ("discord", "discord"),
+        ("telegram", "telegram"),
+        ("whatsapp", "whatsapp"),
+    ]
+    for token, probe in keyword_map:
+        if probe in normalized:
+            tokens.append(token)
+    return tokens
+
+
+def _is_noise_sentence(text: str) -> bool:
+    sentence = _clean_text(text)
+    if not sentence:
+        return True
+    noisy_tokens = [
+        "这是一份用于测试",
+        "上传、解析、检索",
+        "文档用途",
+        "企业知识库测试文档",
+    ]
+    return any(token in sentence for token in noisy_tokens)
+
+
+def _snippet_match_score(snippet: str, answer_text: str) -> int:
+    sentence = _clean_text(snippet)
+    if not sentence:
+        return -100
+    tokens = _answer_priority_tokens(answer_text)
+    s = sentence.lower()
+    score = sum(1 for token in tokens if token.lower() in s)
+    if "支持" in sentence:
+        score += 1
+    if _is_noise_sentence(sentence):
+        score -= 2
+    return score
+
+
+def _best_sentence_by_answer_keywords(sentences: list[str], answer_text: str) -> str:
+    tokens = _answer_priority_tokens(answer_text)
+    if not sentences or not tokens:
+        return ""
+
+    best_sentence = ""
+    best_score = -100
+    for sentence in sentences:
+        score = _snippet_match_score(sentence, answer_text)
+        if score > best_score:
+            best_score = score
+            best_sentence = sentence
+
+    if best_score <= 0:
+        return ""
+    return _strip_markdown_heading_prefix(best_sentence)
+
+
 def _choose_relevant_snippet(snippet: str, answer: str, max_snippet_len: int) -> str:
     repaired = _repair_sentence_boundaries(snippet)
     answer_text = _clean_text(answer).lower()
     sentences = _split_sentences(repaired)
+
+    keyword_matched = _best_sentence_by_answer_keywords(sentences, answer)
+    if keyword_matched:
+        return _clean_text(keyword_matched, max_snippet_len)
 
     priorities: list[str] = []
     if "ragflow" in answer_text:
@@ -64,8 +145,8 @@ def _choose_relevant_snippet(snippet: str, answer: str, max_snippet_len: int) ->
 
     if len(sentences) > 1:
         joined = "；".join(sentences)
-        return _clean_text(joined, max_snippet_len)
-    return _clean_text(repaired, max_snippet_len)
+        return _clean_text(_strip_markdown_heading_prefix(joined), max_snippet_len)
+    return _clean_text(_strip_markdown_heading_prefix(repaired), max_snippet_len)
 
 
 def _to_float(value: Any) -> float | None:
@@ -190,16 +271,19 @@ def normalize_references(answer_or_response: Any, max_snippet_len: int = 100) ->
         if not isinstance(ref, dict):
             continue
         score = _score_of(ref)
+        snippet = _snippet_of(ref, max_snippet_len, answer)
         candidates.append(
             {
                 "source_index": idx,
                 "source_indexes": [idx],
                 "source_label": "",
                 "doc_name": _doc_name_of(ref, doc_names),
-                "snippet": _snippet_of(ref, max_snippet_len, answer),
+                "snippet": snippet,
                 "score": score,
                 "chunk_id": _chunk_id_of(ref),
                 "kb_id": _kb_id_of(ref),
+                "_snippet_match": _snippet_match_score(snippet, answer),
+                "_snippet_len": len(_clean_text(snippet)),
                 "_doc_key": _clean_text(ref.get("doc_id") or ref.get("document_id")) or _doc_name_of(ref, doc_names),
                 "_order": idx,
             }
@@ -208,9 +292,24 @@ def normalize_references(answer_or_response: Any, max_snippet_len: int = 100) ->
     cited = _citation_indexes(answer)
     cited_rank = {idx: rank for rank, idx in enumerate(cited)}
     if cited:
-        candidates.sort(key=lambda x: (0 if x["source_index"] in cited_rank else 1, cited_rank.get(x["source_index"], 10**6), x["_order"]))
+        candidates.sort(
+            key=lambda x: (
+                0 if x["source_index"] in cited_rank else 1,
+                cited_rank.get(x["source_index"], 10**6),
+                -x.get("_snippet_match", -100),
+                x.get("_snippet_len", 10**6),
+                x["_order"],
+            )
+        )
     else:
-        candidates.sort(key=lambda x: (-(x["score"] if x["score"] is not None else -1.0), x["_order"]))
+        candidates.sort(
+            key=lambda x: (
+                -x.get("_snippet_match", -100),
+                x.get("_snippet_len", 10**6),
+                -(x["score"] if x["score"] is not None else -1.0),
+                x["_order"],
+            )
+        )
 
     deduped: list[dict[str, Any]] = []
     seen: dict[str, dict[str, Any]] = {}
@@ -227,6 +326,8 @@ def normalize_references(answer_or_response: Any, max_snippet_len: int = 100) ->
 
     for display_idx, item in enumerate(deduped, start=1):
         item["source_label"] = f"来源{display_idx}"
+        item.pop("_snippet_match", None)
+        item.pop("_snippet_len", None)
         item.pop("_doc_key", None)
         item.pop("_order", None)
     return deduped
