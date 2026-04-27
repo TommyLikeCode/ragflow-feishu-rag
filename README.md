@@ -1,416 +1,238 @@
-## RAGFlow Feishu Enterprise Copilot 二次开发版
+# 🧠 RAGFlow Feishu Enterprise Copilot
 
-本仓库在保留 RAGFlow 原始能力基础上，提供了面向飞书企业场景的二次开发实现与验收流程说明。
-
-- 详细说明请见 [README_FEISHU_COPILOT.md](./README_FEISHU_COPILOT.md)
-
-<div align="center">
-<a href="https://demo.ragflow.io/">
-<img src="web/src/assets/logo-with-text.svg" width="520" alt="ragflow logo">
-</a>
-</div>
+> 基于 RAGFlow 二次开发的企业知识库 Copilot。  
+> 接入飞书作为统一办公入口，支持文档上传、权限隔离、多知识库切换、引用溯源、后台管理与自动化评测。
 
 <p align="center">
-  <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-DBEDFA"></a>
-  <a href="./README_zh.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/简体中文-DFE0E5"></a>
-  <a href="./README_tzh.md"><img alt="繁體版中文自述文件" src="https://img.shields.io/badge/繁體中文-DFE0E5"></a>
-  <a href="./README_ja.md"><img alt="日本語のREADME" src="https://img.shields.io/badge/日本語-DFE0E5"></a>
-  <a href="./README_ko.md"><img alt="한국어" src="https://img.shields.io/badge/한국어-DFE0E5"></a>
-  <a href="./README_id.md"><img alt="Bahasa Indonesia" src="https://img.shields.io/badge/Bahasa Indonesia-DFE0E5"></a>
-  <a href="./README_pt_br.md"><img alt="Português(Brasil)" src="https://img.shields.io/badge/Português(Brasil)-DFE0E5"></a>
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.12-blue">
+  <img alt="Base" src="https://img.shields.io/badge/Base-RAGFlow-green">
+  <img alt="Channel" src="https://img.shields.io/badge/Channel-Feishu-00A1FF">
+  <img alt="RAG" src="https://img.shields.io/badge/RAG-Enterprise%20KB-purple">
+  <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-lightgrey">
 </p>
 
-<p align="center">
-    <a href="https://x.com/intent/follow?screen_name=infiniflowai" target="_blank">
-        <img src="https://img.shields.io/twitter/follow/infiniflow?logo=X&color=%20%23f5f5f5" alt="follow on X(Twitter)">
-    </a>
-    <a href="https://demo.ragflow.io" target="_blank">
-        <img alt="Static Badge" src="https://img.shields.io/badge/Online-Demo-4e6b99">
-    </a>
-    <a href="https://hub.docker.com/r/infiniflow/ragflow" target="_blank">
-        <img src="https://img.shields.io/docker/pulls/infiniflow/ragflow?label=Docker%20Pulls&color=0db7ed&logo=docker&logoColor=white&style=flat-square" alt="docker pull infiniflow/ragflow:v0.24.0">
-    </a>
-    <a href="https://github.com/infiniflow/ragflow/releases/latest">
-        <img src="https://img.shields.io/github/v/release/infiniflow/ragflow?color=blue&label=Latest%20Release" alt="Latest Release">
-    </a>
-    <a href="https://github.com/infiniflow/ragflow/blob/main/LICENSE">
-        <img height="21" src="https://img.shields.io/badge/License-Apache--2.0-ffffff?labelColor=d4eaf7&color=2e6cc4" alt="license">
-    </a>
-    <a href="https://deepwiki.com/infiniflow/ragflow">
-        <img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg">
-    </a>
-</p>
-
-<h4 align="center">
-  <a href="https://ragflow.io/docs/dev/">Document</a> |
-  <a href="https://github.com/infiniflow/ragflow/issues/12241">Roadmap</a> |
-  <a href="https://twitter.com/infiniflowai">Twitter</a> |
-  <a href="https://discord.gg/NjYzJD3GM3">Discord</a> |
-  <a href="https://demo.ragflow.io">Demo</a>
-</h4>
-
-<div align="center" style="margin-top:20px;margin-bottom:20px;">
-<img src="https://raw.githubusercontent.com/infiniflow/ragflow-docs/refs/heads/image/image/ragflow-octoverse.png" width="1200"/>
-</div>
-
-<div align="center">
-<a href="https://trendshift.io/repositories/9064" target="_blank"><img src="https://trendshift.io/api/badge/repositories/9064" alt="infiniflow%2Fragflow | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</div>
-
-<details open>
-<summary><b>📕 Table of Contents</b></summary>
-
-- 💡 [What is RAGFlow?](#-what-is-ragflow)
-- 🎮 [Demo](#-demo)
-- 📌 [Latest Updates](#-latest-updates)
-- 🌟 [Key Features](#-key-features)
-- 🔎 [System Architecture](#-system-architecture)
-- 🎬 [Get Started](#-get-started)
-- 🔧 [Configurations](#-configurations)
-- 🔧 [Build a Docker image](#-build-a-docker-image)
-- 🔨 [Launch service from source for development](#-launch-service-from-source-for-development)
-- 📚 [Documentation](#-documentation)
-- 📜 [Roadmap](#-roadmap)
-- 🏄 [Community](#-community)
-- 🙌 [Contributing](#-contributing)
-
-</details>
-
-## 💡 What is RAGFlow?
-
-[RAGFlow](https://ragflow.io/) is a leading open-source Retrieval-Augmented Generation ([RAG](https://ragflow.io/basics/what-is-rag)) engine that fuses cutting-edge RAG with Agent capabilities to create a superior context layer for LLMs. It offers a streamlined RAG workflow adaptable to enterprises of any scale. Powered by a converged [context engine](https://ragflow.io/basics/what-is-agent-context-engine) and pre-built agent templates, RAGFlow enables developers to transform complex data into high-fidelity, production-ready AI systems with exceptional efficiency and precision.
-
-## 🎮 Demo
-
-Try our demo at [https://demo.ragflow.io](https://demo.ragflow.io).
-
-<div align="center" style="margin-top:20px;margin-bottom:20px;">
-<img src="https://raw.githubusercontent.com/infiniflow/ragflow-docs/refs/heads/image/image/chunking.gif" width="1200"/>
-<img src="https://raw.githubusercontent.com/infiniflow/ragflow-docs/refs/heads/image/image/agentic-dark.gif" width="1200"/>
-</div>
-
-## 🔥 Latest Updates
-
-- 2025-12-26 Supports 'Memory' for AI agent.
-- 2025-11-19 Supports Gemini 3 Pro.
-- 2025-11-12 Supports data synchronization from Confluence, S3, Notion, Discord, Google Drive.
-- 2025-10-23 Supports MinerU & Docling as document parsing methods.
-- 2025-10-15 Supports orchestrable ingestion pipeline.
-- 2025-08-08 Supports OpenAI's latest GPT-5 series models.
-- 2025-08-01 Supports agentic workflow and MCP.
-- 2025-05-23 Adds a Python/JavaScript code executor component to Agent.
-- 2025-05-05 Supports cross-language query.
-- 2025-03-19 Supports using a multi-modal model to make sense of images within PDF or DOCX files.
-
-## 🎉 Stay Tuned
-
-⭐️ Star our repository to stay up-to-date with exciting new features and improvements! Get instant notifications for new
-releases! 🌟
-
-<div align="center" style="margin-top:20px;margin-bottom:20px;">
-<img src="https://github.com/user-attachments/assets/18c9707e-b8aa-4caf-a154-037089c105ba" width="1200"/>
-</div>
-
-## 🌟 Key Features
-
-### 🍭 **"Quality in, quality out"**
-
-- [Deep document understanding](./deepdoc/README.md)-based knowledge extraction from unstructured data with complicated
-  formats.
-- Finds "needle in a data haystack" of literally unlimited tokens.
-
-### 🍱 **Template-based chunking**
-
-- Intelligent and explainable.
-- Plenty of template options to choose from.
+本项目不是从零实现 RAG 引擎，而是基于 [RAGFlow](https://github.com/infiniflow/ragflow) 的文档解析、知识库、检索和问答能力，面向企业飞书办公场景进行二次开发。
+
+- 原 RAGFlow README 已归档到：[README_RAGFLOW_ORIGINAL.md](./README_RAGFLOW_ORIGINAL.md)
+- 详细二次开发说明见：[README_FEISHU_COPILOT.md](./README_FEISHU_COPILOT.md)
+- 原许可证与版权信息保持不变，见：[LICENSE](./LICENSE)
+
+---
+
+## ✨ Killer Features
+
+- **飞书企业办公入口**：通过 Feishu WS Sidecar 接入飞书机器人消息，支持私聊 / 群聊中的企业知识库问答。
+- **ACL v2 权限隔离**：支持 public / department / personal / allow / deny 规则，检索前先过滤可访问知识库。
+- **多知识库切换**：支持 `/知识库`、`/当前知识库`、`/切换知识库`、`/使用全部知识库`。
+- **文档上传闭环**：后台上传文档后自动解析、切 chunk、入索引，并可在飞书中问答命中新文档。
+- **Citation v2 引用回答**：回答中使用 `[来源1]`，底部展示来源文档与命中片段。
+- **Query Rewrite + Answer Constraint**：优化短问、追问和入口类问题，提升回答稳定性。
+- **管理后台**：提供 Dashboard、知识库、文档、ACL、知识库路由、评测结果等页面。
+- **自动化评测与验收**：提供 eval 脚本和 final acceptance 脚本，方便持续验证。
 
-### 🌱 **Grounded citations with reduced hallucinations**
+---
 
-- Visualization of text chunking to allow human intervention.
-- Quick view of the key references and traceable citations to support grounded answers.
+## 📢 更新重点
 
-### 🍔 **Compatibility with heterogeneous data sources**
+| 模块 | 增强内容 |
+|---|---|
+| Feishu WS Sidecar | 飞书长连接接入、消息解析、异步分发 |
+| Worker Queue | 异步处理飞书消息，避免阻塞回调 |
+| ACL v2 | public / department / personal / allow / deny 权限隔离 |
+| KB Selection | 会话级知识库切换，与 ACL 结果取交集 |
+| Query Runner | 串联 ACL、Rewrite、Retrieval、Constraint、Citation |
+| Upload Workflow | 文档上传、解析、chunk 预览、飞书问答命中 |
+| Citation Formatter | `[ID:x] -> [来源x]`，来源去重与 snippet 清洗 |
+| Admin MVP | 企业知识库后台管理页 |
+| Eval / Acceptance | 自动评测与最终验收脚本 |
 
-- Supports Word, slides, excel, txt, images, scanned copies, structured data, web pages, and more.
+---
 
-### 🛀 **Automated and effortless RAG workflow**
+## 🧩 技术架构
 
-- Streamlined RAG orchestration catered to both personal and large businesses.
-- Configurable LLMs as well as embedding models.
-- Multiple recall paired with fused re-ranking.
-- Intuitive APIs for seamless integration with business.
+```text
+飞书用户
+  │
+  ▼
+Feishu WS Sidecar
+  │
+  ▼
+Message Queue / Worker
+  │
+  ▼
+FeishuMessageContext
+  │
+  ▼
+ACL v2 权限过滤
+  │
+  ▼
+KB Selection 多知识库选择
+  │
+  ▼
+Query Rewrite
+  │
+  ▼
+RAGFlow Retrieval
+  │
+  ▼
+Answer Constraint
+  │
+  ▼
+Citation Formatter
+  │
+  ▼
+飞书引用回答
 
-## 🔎 System Architecture
+最终检索范围：
 
-<div align="center" style="margin-top:20px;margin-bottom:20px;">
-<img src="https://github.com/user-attachments/assets/31b0dd6f-ca4f-445a-9457-70cb44a381b2" width="1000"/>
-</div>
+final_kb_ids = ACL 可访问知识库 ∩ 用户当前选择知识库
+🌟 主要能力
+1. 飞书问答入口
 
-## 🎬 Get Started
+通过飞书长连接接收消息，经 sidecar 和 worker queue 异步处理，再进入 RAGFlow 问答链路。
 
-### 📝 Prerequisites
-
-- CPU >= 4 cores
-- RAM >= 16 GB
-- Disk >= 50 GB
-- Docker >= 24.0.0 & Docker Compose >= v2.26.1
-- [gVisor](https://gvisor.dev/docs/user_guide/install/): Required only if you intend to use the code executor (sandbox) feature of RAGFlow.
-
-> [!TIP]
-> If you have not installed Docker on your local machine (Windows, Mac, or Linux), see [Install Docker Engine](https://docs.docker.com/engine/install/).
-
-### 🚀 Start up the server
-
-1. Ensure `vm.max_map_count` >= 262144:
-
-   > To check the value of `vm.max_map_count`:
-   >
-   > ```bash
-   > $ sysctl vm.max_map_count
-   > ```
-   >
-   > Reset `vm.max_map_count` to a value at least 262144 if it is not.
-   >
-   > ```bash
-   > # In this case, we set it to 262144:
-   > $ sudo sysctl -w vm.max_map_count=262144
-   > ```
-   >
-   > This change will be reset after a system reboot. To ensure your change remains permanent, add or update the
-   > `vm.max_map_count` value in **/etc/sysctl.conf** accordingly:
-   >
-   > ```bash
-   > vm.max_map_count=262144
-   > ```
-   >
-2. Clone the repo:
-
-   ```bash
-   $ git clone https://github.com/infiniflow/ragflow.git
-   ```
-3. Start up the server using the pre-built Docker images:
-
-> [!CAUTION]
-> All Docker images are built for x86 platforms. We don't currently offer Docker images for ARM64.
-> If you are on an ARM64 platform, follow [this guide](https://ragflow.io/docs/dev/build_docker_image) to build a Docker image compatible with your system.
-
-> The command below downloads the `v0.24.0` edition of the RAGFlow Docker image. See the following table for descriptions of different RAGFlow editions. To download a RAGFlow edition different from `v0.24.0`, update the `RAGFLOW_IMAGE` variable accordingly in **docker/.env** before using `docker compose` to start the server.
-
-```bash
-   $ cd ragflow/docker
-
-   # git checkout v0.24.0
-   # Optional: use a stable tag (see releases: https://github.com/infiniflow/ragflow/releases)
-   # This step ensures the **entrypoint.sh** file in the code matches the Docker image version.
-
-   # Use CPU for DeepDoc tasks:
-   $ docker compose -f docker-compose.yml up -d
-
-   # To use GPU to accelerate DeepDoc tasks:
-   # sed -i '1i DEVICE=gpu' .env
-   # docker compose -f docker-compose.yml up -d
-```
-
-> Note: Prior to `v0.22.0`, we provided both images with embedding models and slim images without embedding models. Details as follows:
-
-| RAGFlow image tag | Image size (GB) | Has embedding models? | Stable?        |
-|-------------------|-----------------|-----------------------|----------------|
-| v0.21.1           | &approx;9       | ✔️                    | Stable release |
-| v0.21.1-slim      | &approx;2       | ❌                     | Stable release |
-
-> Starting with `v0.22.0`, we ship only the slim edition and no longer append the **-slim** suffix to the image tag.
-
-4. Check the server status after having the server up and running:
-
-   ```bash
-   $ docker logs -f docker-ragflow-cpu-1
-   ```
-
-   _The following output confirms a successful launch of the system:_
-
-   ```bash
-
-         ____   ___    ______ ______ __
-        / __ \ /   |  / ____// ____// /____  _      __
-       / /_/ // /| | / / __ / /_   / // __ \| | /| / /
-      / _, _// ___ |/ /_/ // __/  / // /_/ /| |/ |/ /
-     /_/ |_|/_/  |_|\____//_/    /_/ \____/ |__/|__/
-
-    * Running on all addresses (0.0.0.0)
-   ```
-
-   > If you skip this confirmation step and directly log in to RAGFlow, your browser may prompt a `network abnormal`
-   > error because, at that moment, your RAGFlow may not be fully initialized.
-   >
-5. In your web browser, enter the IP address of your server and log in to RAGFlow.
-
-   > With the default settings, you only need to enter `http://IP_OF_YOUR_MACHINE` (**sans** port number) as the default
-   > HTTP serving port `80` can be omitted when using the default configurations.
-   >
-6. In [service_conf.yaml.template](./docker/service_conf.yaml.template), select the desired LLM factory in `user_default_llm` and update
-   the `API_KEY` field with the corresponding API key.
-
-   > See [llm_api_key_setup](https://ragflow.io/docs/dev/llm_api_key_setup) for more information.
-   >
-
-   _The show is on!_
-
-## 🔧 Configurations
-
-When it comes to system configurations, you will need to manage the following files:
-
-- [.env](./docker/.env): Keeps the fundamental setups for the system, such as `SVR_HTTP_PORT`, `MYSQL_PASSWORD`, and
-  `MINIO_PASSWORD`.
-- [service_conf.yaml.template](./docker/service_conf.yaml.template): Configures the back-end services. The environment variables in this file will be automatically populated when the Docker container starts. Any environment variables set within the Docker container will be available for use, allowing you to customize service behavior based on the deployment environment.
-- [docker-compose.yml](./docker/docker-compose.yml): The system relies on [docker-compose.yml](./docker/docker-compose.yml) to start up.
-
-> The [./docker/README](./docker/README.md) file provides a detailed description of the environment settings and service
-> configurations which can be used as `${ENV_VARS}` in the [service_conf.yaml.template](./docker/service_conf.yaml.template) file.
-
-To update the default HTTP serving port (80), go to [docker-compose.yml](./docker/docker-compose.yml) and change `80:80`
-to `<YOUR_SERVING_PORT>:80`.
-
-Updates to the above configurations require a reboot of all containers to take effect:
-
-> ```bash
-> $ docker compose -f docker-compose.yml up -d
-> ```
-
-### Switch doc engine from Elasticsearch to Infinity
-
-RAGFlow uses Elasticsearch by default for storing full text and vectors. To switch to [Infinity](https://github.com/infiniflow/infinity/), follow these steps:
-
-1. Stop all running containers:
-
-   ```bash
-   $ docker compose -f docker/docker-compose.yml down -v
-   ```
-
-> [!WARNING]
-> `-v` will delete the docker container volumes, and the existing data will be cleared.
-
-2. Set `DOC_ENGINE` in **docker/.env** to `infinity`.
-3. Start the containers:
-
-   ```bash
-   $ docker compose -f docker-compose.yml up -d
-   ```
-
-> [!WARNING]
-> Switching to Infinity on a Linux/arm64 machine is not yet officially supported.
-
-## 🔧 Build a Docker image
-
-This image is approximately 2 GB in size and relies on external LLM and embedding services.
-
-```bash
-git clone https://github.com/infiniflow/ragflow.git
-cd ragflow/
-docker build --platform linux/amd64 -f Dockerfile -t infiniflow/ragflow:nightly .
-```
-
-Or if you are behind a proxy, you can pass proxy arguments:
-
-```bash
-docker build --platform linux/amd64 \
-  --build-arg http_proxy=http://YOUR_PROXY:PORT \
-  --build-arg https_proxy=http://YOUR_PROXY:PORT \
-  -f Dockerfile -t infiniflow/ragflow:nightly .
-```
-
-## 🔨 Launch service from source for development
-
-1. Install `uv` and `pre-commit`, or skip this step if they are already installed:
-
-   ```bash
-   pipx install uv pre-commit
-   ```
-2. Clone the source code and install Python dependencies:
-
-   ```bash
-   git clone https://github.com/infiniflow/ragflow.git
-   cd ragflow/
-   uv sync --python 3.12 # install RAGFlow dependent python modules
-   uv run download_deps.py
-   pre-commit install
-   ```
-3. Launch the dependent services (MinIO, Elasticsearch, Redis, and MySQL) using Docker Compose:
-
-   ```bash
-   docker compose -f docker/docker-compose-base.yml up -d
-   ```
-
-   Add the following line to `/etc/hosts` to resolve all hosts specified in **docker/.env** to `127.0.0.1`:
-
-   ```
-   127.0.0.1       es01 infinity mysql minio redis sandbox-executor-manager
-   ```
-4. If you cannot access HuggingFace, set the `HF_ENDPOINT` environment variable to use a mirror site:
-
-   ```bash
-   export HF_ENDPOINT=https://hf-mirror.com
-   ```
-5. If your operating system does not have jemalloc, please install it as follows:
-
-   ```bash
-   # Ubuntu
-   sudo apt-get install libjemalloc-dev
-   # CentOS
-   sudo yum install jemalloc
-   # OpenSUSE
-   sudo zypper install jemalloc
-   # macOS
-   sudo brew install jemalloc
-   ```
-6. Launch backend service:
-
-   ```bash
-   source .venv/bin/activate
-   export PYTHONPATH=$(pwd)
-   bash docker/launch_backend_service.sh
-   ```
-7. Install frontend dependencies:
-
-   ```bash
-   cd web
-   npm install
-   ```
-8. Launch frontend service:
-
-   ```bash
-   npm run dev
-   ```
-
-   _The following output confirms a successful launch of the system:_
-
-   ![](https://github.com/user-attachments/assets/0daf462c-a24d-4496-a66f-92533534e187)
-9. Stop RAGFlow front-end and back-end service after development is complete:
-
-   ```bash
-   pkill -f "ragflow_server.py|task_executor.py"
-   ```
-
-## 📚 Documentation
-
-- [Quickstart](https://ragflow.io/docs/dev/)
-- [Configuration](https://ragflow.io/docs/dev/configurations)
-- [Release notes](https://ragflow.io/docs/dev/release_notes)
-- [User guides](https://ragflow.io/docs/dev/category/guides)
-- [Developer guides](https://ragflow.io/docs/dev/category/developers)
-- [References](https://ragflow.io/docs/dev/category/references)
-- [FAQs](https://ragflow.io/docs/dev/faq)
-
-## 📜 Roadmap
-
-See the [RAGFlow Roadmap 2026](https://github.com/infiniflow/ragflow/issues/12241)
-
-## 🏄 Community
-
-- [Discord](https://discord.gg/NjYzJD3GM3)
-- [Twitter](https://twitter.com/infiniflowai)
-- [GitHub Discussions](https://github.com/orgs/infiniflow/discussions)
-
-## 🙌 Contributing
-
-RAGFlow flourishes via open-source collaboration. In this spirit, we embrace diverse contributions from the community.
-If you would like to be a part, review our [Contribution Guidelines](https://ragflow.io/docs/dev/contributing) first.
+2. 企业权限隔离
+
+ACL v2 支持公共、部门、个人和显式 allow / deny 规则，避免用户越权检索。
+
+3. 多知识库切换
+
+飞书用户可以通过命令查看、切换和恢复知识库范围，且切换结果不会绕过权限系统。
+
+4. 文档上传闭环
+
+后台上传文档后，系统完成解析、切片、入索引，最终可在飞书中问答命中新内容。
+
+5. 引用回答
+
+Citation v2 将底层 chunk 引用转成用户可读的 [来源1]，并展示来源文档与命中片段。
+
+6. 管理后台
+
+后台入口：
+
+http://127.0.0.1:9380/admin
+
+包含 Dashboard、知识库管理、文档管理、ACL 调试、知识库路由、评测结果等页面。
+
+🚀 快速开始
+1. 启动 RAGFlow 后端
+cd /home/tom/code/ragflow
+source .venv/bin/activate
+
+nohup env PYTHONPATH=/home/tom/code/ragflow \
+  ./.venv/bin/python api/ragflow_server.py \
+  > logs/ragflow_server.log 2>&1 &
+
+检查：
+
+curl -I http://127.0.0.1:9380/admin
+2. 启动飞书 Sidecar
+
+飞书环境变量建议放在 .env.feishu.local，不要提交真实密钥。
+
+常见变量名：
+
+FEISHU_APP_ID
+FEISHU_APP_SECRET
+FEISHU_APP_TOKEN
+FEISHU_DEFAULT_DIALOG_ID
+
+启动：
+
+cd /home/tom/code/ragflow
+source .venv/bin/activate
+
+set -a
+source .env.feishu.local
+set +a
+
+nohup env PYTHONPATH=/home/tom/code/ragflow \
+  ./.venv/bin/python scripts/run_feishu_ws.py \
+  > logs/feishu_sidecar_local.log 2>&1 &
+
+查看日志：
+
+tail -f logs/feishu_sidecar_local.log
+📡 飞书演示命令
+
+在飞书中依次发送：
+
+/知识库
+/当前知识库
+/切换知识库 Feishu Debug KB
+/当前知识库
+Nanobot 支持哪些入口？
+/使用全部知识库
+/当前知识库
+
+预期回答示例：
+
+Nanobot 支持飞书、Discord、Telegram、WhatsApp 等入口 [来源1]
+
+本回答基于以下资料生成：
+1. nanobot_kb_test_doc.md：Nanobot 是一个企业级多渠道 AI Agent 平台，支持飞书、Discord、Telegram、WhatsApp 等入口（来源1）
+🧪 自动化验收
+cd /home/tom/code/ragflow
+source .venv/bin/activate
+bash scripts/final_feishu_rag_acceptance.sh
+
+检查项包括：
+
+/admin
+/api/v1/feishu/ping
+/api/v1/feishu/metrics
+/api/v1/feishu/health
+/api/v1/feishu/debug_acl
+/api/admin/kbs
+/api/admin/documents
+/api/admin/kb-selections
+scripts/eval_feishu_rag.py
+📁 重点代码结构
+api/integrations/
+├── feishu_message_context.py      # 飞书消息上下文
+├── feishu_message_handler.py      # 飞书文本处理与命令分流
+├── feishu_ws_bridge.py            # 飞书 WS 事件桥接
+├── feishu_task_queue.py           # 异步任务队列
+├── feishu_kb_acl.py               # ACL v2 权限过滤
+├── feishu_kb_selection.py         # 多知识库切换状态
+├── feishu_query_runner.py         # 飞书 RAG 问答统一入口
+├── query_rewrite.py               # Query Rewrite
+├── feishu_answer_constraint.py    # 回答约束
+├── feishu_citation_formatter.py   # Citation v2
+└── feishu_metrics.py              # 运行指标
+
+api/apps/
+├── feishu_app.py                  # 飞书 API / debug / health / metrics
+└── admin_mvp_app.py               # 后台管理 API
+
+scripts/
+├── run_feishu_ws.py
+├── eval_feishu_rag.py
+└── final_feishu_rag_acceptance.sh
+🗺️ Roadmap
+ 飞书机器人问答接入
+ Feishu WS Sidecar
+ Worker Queue 异步处理
+ ACL v2 权限隔离
+ 多知识库切换
+ 文档上传闭环
+ Citation v2 引用回答
+ Query Rewrite / Answer Constraint
+ 后台管理页
+ 自动化评测与验收脚本
+ 后台登录鉴权
+ 文档上传去重
+ 用户 / 部门同步
+ Docker Compose 一键演示环境
+📝 与原 RAGFlow 的关系
+
+本项目基于 RAGFlow 进行企业办公场景二次开发，主要新增飞书入口、权限隔离、多知识库切换、引用回答、后台管理和评测闭环。
+
+原项目说明保存在：
+
+README_RAGFLOW_ORIGINAL.md
+
+原许可证和版权信息保持不变：
+
+LICENSE
