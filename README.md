@@ -1,3 +1,9 @@
+## RAGFlow Feishu Enterprise Copilot 二次开发版
+
+本仓库在保留 RAGFlow 原始能力基础上，提供了面向飞书企业场景的二次开发实现与验收流程说明。
+
+- 详细说明请见 [README_FEISHU_COPILOT.md](./README_FEISHU_COPILOT.md)
+
 <div align="center">
 <a href="https://demo.ragflow.io/">
 <img src="web/src/assets/logo-with-text.svg" width="520" alt="ragflow logo">
