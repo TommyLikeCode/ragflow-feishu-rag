@@ -12,14 +12,14 @@
 
 目标是实现一套可演示、可验证、具备企业工程特征的知识库 Copilot：
 
-```text
+
 企业员工在飞书中提问
   -> 系统根据用户身份过滤可访问知识库
   -> 支持用户切换当前知识库范围
   -> RAGFlow 检索企业文档
   -> 返回带来源引用的回答
   -> 后台可上传文档、调试权限、查看评测和运行状态
-2. 总体架构
+## 2. 总体架构
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         飞书用户 / 企业员工                          │
 │                  私聊 / 群聊 / 文本命令 / 知识库问答                  │
@@ -94,7 +94,7 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         飞书引用回答                                 │
 └─────────────────────────────────────────────────────────────────────┘
-3. 飞书接入链路
+## 3. 飞书接入链路
 
 飞书消息通过 WS sidecar 接入。
 
@@ -115,7 +115,7 @@ api/integrations/feishu_ws_client.py
   -> worker 消费消息
   -> 命令分流或 RAG 问答
   -> 通过 Feishu client 回复
-4. ACL v2 权限系统
+## 4. ACL v2 权限系统
 
 ACL v2 用于在检索前过滤知识库，避免越权访问。
 
@@ -148,7 +148,7 @@ explicit deny > explicit allow > public > department match > personal owner > no
 调试接口：
 
 curl -sS "http://127.0.0.1:9380/api/v1/feishu/debug_acl?dialog_id=61f317d03cca11f1a2315f1d7123b9fc&open_id=ou_test_citation" | python3 -m json.tool
-5. 多知识库切换
+## 5. 多知识库切换
 
 用户可以在飞书中切换当前问答范围。
 
@@ -173,7 +173,7 @@ final_kb_ids = acl_filtered_kb_ids ∩ selected_kb_ids
 
 如果用户未选择知识库，则使用 ACL 允许的全部知识库。
 
-6. 文档上传闭环
+## 6. 文档上传闭环
 
 后台文档页支持上传文件到指定知识库。
 
@@ -193,7 +193,7 @@ final_kb_ids = acl_filtered_kb_ids ∩ selected_kb_ids
 POST /api/admin/documents/upload
 GET  /api/admin/documents
 GET  /api/admin/documents/:id
-7. Citation v2 引用回答
+## 7. Citation v2 引用回答
 
 Citation v2 负责将底层 [ID:x] 引用转换成飞书用户可读格式。
 
@@ -216,7 +216,7 @@ snippet 清洗
 Markdown 标题去除
 answer-aware 片段选择
 重复来源去重
-8. Query Rewrite 与 Answer Constraint
+## 8. Query Rewrite 与 Answer Constraint
 
 Query Rewrite 用于短问补全和指代改写。
 
@@ -231,7 +231,7 @@ Answer Constraint 用于控制最终回答质量：
 
 用户：Nanobot 支持哪些入口？
 回答：Nanobot 支持飞书、Discord、Telegram、WhatsApp 等入口 [来源1]
-9. 管理后台
+## 9. 管理后台
 
 后台入口：
 
@@ -246,7 +246,7 @@ Dashboard	系统状态、问答统计、健康度
 ACL 调试	查看用户对 dialog 的 KB 访问决策
 知识库路由	查看和清除 KB selection
 评测结果	查看 eval 输出与引用指标
-10. 自动化评测
+## 10. 自动化评测
 
 评测脚本：
 
@@ -264,7 +264,7 @@ source_keyword_match_rate	来源关键词匹配率
 citation_coverage_rate	引用覆盖率
 avg_latency_seconds	平均耗时
 avg_citation_count	平均引用数
-11. 最终验收
+## 11. 最终验收
 cd /home/tom/code/ragflow
 source .venv/bin/activate
 bash scripts/final_feishu_rag_acceptance.sh

@@ -50,7 +50,7 @@
 
 ## 🧩 技术架构
 
-```text
+
 飞书用户
   │
   ▼
@@ -86,7 +86,9 @@ Citation Formatter
 最终检索范围：
 
 final_kb_ids = ACL 可访问知识库 ∩ 用户当前选择知识库
-🌟 主要能力
+
+## 🌟 主要能力
+
 1. 飞书问答入口
 
 通过飞书长连接接收消息，经 sidecar 和 worker queue 异步处理，再进入 RAGFlow 问答链路。
@@ -115,7 +117,8 @@ http://127.0.0.1:9380/admin
 
 包含 Dashboard、知识库管理、文档管理、ACL 调试、知识库路由、评测结果等页面。
 
-🚀 快速开始
+## 🚀 快速开始
+
 1. 启动 RAGFlow 后端
 cd /home/tom/code/ragflow
 source .venv/bin/activate
@@ -154,7 +157,7 @@ nohup env PYTHONPATH=/home/tom/code/ragflow \
 查看日志：
 
 tail -f logs/feishu_sidecar_local.log
-📡 飞书演示命令
+## 📡 飞书演示命令
 
 在飞书中依次发送：
 
@@ -172,7 +175,7 @@ Nanobot 支持飞书、Discord、Telegram、WhatsApp 等入口 [来源1]
 
 本回答基于以下资料生成：
 1. nanobot_kb_test_doc.md：Nanobot 是一个企业级多渠道 AI Agent 平台，支持飞书、Discord、Telegram、WhatsApp 等入口（来源1）
-🧪 自动化验收
+## 🧪 自动化验收
 cd /home/tom/code/ragflow
 source .venv/bin/activate
 bash scripts/final_feishu_rag_acceptance.sh
@@ -188,7 +191,7 @@ bash scripts/final_feishu_rag_acceptance.sh
 /api/admin/documents
 /api/admin/kb-selections
 scripts/eval_feishu_rag.py
-📁 重点代码结构
+## 📁 重点代码结构
 api/integrations/
 ├── feishu_message_context.py      # 飞书消息上下文
 ├── feishu_message_handler.py      # 飞书文本处理与命令分流
@@ -210,7 +213,7 @@ scripts/
 ├── run_feishu_ws.py
 ├── eval_feishu_rag.py
 └── final_feishu_rag_acceptance.sh
-🗺️ Roadmap
+## 🗺️ Roadmap
  飞书机器人问答接入
  Feishu WS Sidecar
  Worker Queue 异步处理
@@ -225,7 +228,7 @@ scripts/
  文档上传去重
  用户 / 部门同步
  Docker Compose 一键演示环境
-📝 与原 RAGFlow 的关系
+## 📝 与原 RAGFlow 的关系
 
 本项目基于 RAGFlow 进行企业办公场景二次开发，主要新增飞书入口、权限隔离、多知识库切换、引用回答、后台管理和评测闭环。
 
