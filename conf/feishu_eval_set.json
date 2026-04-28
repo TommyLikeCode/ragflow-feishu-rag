@@ -98,5 +98,98 @@
     "expected_answer_keywords": ["RAGFlow", "RAG 引擎"],
     "expected_source_keywords": ["RAGFlow"],
     "context_seed_question": "RAGFlow 是一个基于什么的 RAG 引擎？"
+  },
+  {
+    "case_id": "case_16",
+    "question": "Nanobot 是什么类型的平台？",
+    "expected_answer_keywords": ["企业级多渠道 AI Agent 平台", "飞书"],
+    "expected_source_keywords": ["Nanobot", "企业级多渠道 AI Agent 平台"]
+  },
+  {
+    "case_id": "case_17",
+    "question": "Citation v2 是用来做什么的？",
+    "expected_answer_keywords": ["引用回答", "来源1", "命中片段"],
+    "expected_source_keywords": ["Citation v2", "来源1", "命中片段"]
+  },
+  {
+    "case_id": "case_18",
+    "question": "Nanobot 支持哪些入口？",
+    "expected_answer_keywords": ["飞书", "Discord", "Telegram", "WhatsApp"],
+    "expected_source_keywords": ["Nanobot", "飞书", "Discord", "Telegram", "WhatsApp"]
+  },
+  {
+    "case_id": "case_19",
+    "question": "Nanobot 使用什么做大模型路由？",
+    "expected_answer_keywords": ["LiteLLM", "大模型路由"],
+    "expected_source_keywords": ["LiteLLM", "大模型路由"]
+  },
+  {
+    "case_id": "case_20",
+    "question": "Nanobot 是否支持工具调用？",
+    "expected_answer_keywords": ["工具调用", "插件系统"],
+    "expected_source_keywords": ["工具调用", "插件系统", "异步任务"]
+  },
+  {
+    "case_id": "case_21",
+    "question": "核心能力呢？",
+    "expected_answer_keywords": ["工具调用", "插件系统", "RAG", "事件驱动", "异步任务"],
+    "expected_source_keywords": ["核心能力", "工具调用", "异步任务"],
+    "context_seed_question": "Nanobot 的核心能力有哪些？"
+  },
+  {
+    "case_id": "case_22",
+    "question": "怎么启动？",
+    "expected_answer_keywords": ["api/ragflow_server.py", "PYTHONPATH"],
+    "expected_source_keywords": ["ragflow_server.py", "PYTHONPATH"],
+    "context_seed_question": "RAGFlow 后端怎么启动？"
+  },
+  {
+    "case_id": "case_23",
+    "question": "那个验收脚本叫什么？",
+    "expected_answer_keywords": ["final_feishu_rag_acceptance.sh"],
+    "expected_source_keywords": ["final_feishu_rag_acceptance.sh", "final acceptance"],
+    "context_seed_question": "飞书 sidecar 日志怎么看？"
+  },
+  {
+    "case_id": "case_24",
+    "question": "飞书里怎么查看可访问知识库？",
+    "expected_answer_keywords": ["当前知识库", "知识库"],
+    "expected_source_keywords": ["/当前知识库", "/知识库"]
+  },
+  {
+    "case_id": "case_25",
+    "question": "如何切换到 Feishu Debug KB？",
+    "expected_answer_keywords": ["切换知识库", "Feishu Debug KB"],
+    "expected_source_keywords": ["/切换知识库", "Feishu Debug KB"]
+  },
+  {
+    "case_id": "case_26",
+    "question": "如何恢复全部知识库？",
+    "expected_answer_keywords": ["使用全部知识库", "全部知识库"],
+    "expected_source_keywords": ["/使用全部知识库", "全部知识库"]
+  },
+  {
+    "case_id": "case_27",
+    "question": "回答里的 [来源1] 是什么？",
+    "expected_answer_keywords": ["来源1", "引用", "来源文档"],
+    "expected_source_keywords": ["来源1", "nanobot_kb_test_doc.md"]
+  },
+  {
+    "case_id": "case_28",
+    "question": "为什么回答要带来源？",
+    "expected_answer_keywords": ["可追溯", "引用", "来源"],
+    "expected_source_keywords": ["Citation v2", "来源"]
+  },
+  {
+    "case_id": "case_29",
+    "question": "今天天气怎么样？",
+    "expected_answer_keywords": [],
+    "expected_source_keywords": []
+  },
+  {
+    "case_id": "case_30",
+    "question": "随便讲个笑话",
+    "expected_answer_keywords": [],
+    "expected_source_keywords": []
   }
 ]
